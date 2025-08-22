@@ -2,10 +2,11 @@
 ```
 vw-aws-cloud-service
 ├─ .env.sample
-├─ debug.log
 ├─ README.md
 └─ script
    ├─ .env
-   └─ s3.sh
-
+   ├─ s3_create_bucket.sh
+   ├─ s3_delete_bucket.sh
+   ├─ s3_download_file.sh
+   └─ s3_upload_file.sh
 ```
