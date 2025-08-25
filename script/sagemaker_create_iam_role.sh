@@ -24,3 +24,6 @@ aws iam attach-role-policy \
 aws iam attach-role-policy \
   --role-name AmazonSageMaker-ExecutionRole \
   --policy-arn arn:aws:iam::aws:policy/CloudWatchFullAccess
+
+aws iam get-role --role-name AmazonSageMaker-ExecutionRole \
+  --query "Role.Arn" --output text
