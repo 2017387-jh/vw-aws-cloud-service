@@ -10,13 +10,13 @@ aws ecr get-login-password --region "$AWS_REGION" \
   | docker login --username AWS --password-stdin "$ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com"
 
 # ===== Image URI =====
-IMAGE_URI_BASE="$ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/$VW_ECR_REPO"
-IMAGE_URI_TAG="$IMAGE_URI_BASE:$VW_ECR_TAG"
+IMAGE_URI_BASE="$ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/$DDN_ECR_REPO"
+IMAGE_URI_TAG="$IMAGE_URI_BASE:$DDN_ECR_TAG"
 IMAGE_URI_LATEST="$IMAGE_URI_BASE:latest"
 
 # ===== Source Image (local) =====
-if docker image inspect "$VW_LOCAL_IMAGE:$VW_ECR_TAG" >/dev/null 2>&1; then
-  SRC_REF="$VW_LOCAL_IMAGE:$VW_ECR_TAG"
+if docker image inspect "$DDN_LOCAL_IMG:$DDN_ECR_TAG" >/dev/null 2>&1; then
+  SRC_REF="$DDN_LOCAL_IMG:$DDN_ECR_TAG"
 else
   # Recent Image
   SRC_REF=$(docker images -q | head -n1)

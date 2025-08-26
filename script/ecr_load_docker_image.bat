@@ -7,13 +7,13 @@ for /f "usebackq tokens=1,2 delims==" %%A in (".env") do (
 )
 
 REM ===== Check tar file exists =====
-if not exist "%VW_ECR_TAR%" (
-    echo [ERROR] TAR file not found: %VW_ECR_TAR%
+if not exist "%DDN_ECR_IMG_TAR%" (
+    echo [ERROR] TAR file not found: %DDN_ECR_IMG_TAR%
     exit /b 1
 )
 
-echo [INFO] Loading docker image from %VW_ECR_TAR%
-for /f "tokens=*" %%L in ('docker load -i "%VW_ECR_TAR%"') do set LOAD_OUT=%%L
+echo [INFO] Loading docker image from %DDN_ECR_IMG_TAR%
+for /f "tokens=*" %%L in ('docker load -i "%DDN_ECR_IMG_TAR%"') do set LOAD_OUT=%%L
 echo [INFO] docker load => %LOAD_OUT%
 
 echo [DONE] Image loaded locally.

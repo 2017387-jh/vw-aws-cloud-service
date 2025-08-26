@@ -3,7 +3,7 @@ set -euo pipefail
 source .env
 aws configure set region "$AWS_REGION"
 
-for b in "$VW_IMG_SRC_BUCKET" "$VW_IMG_OUT_BUCKET"; do
+for b in "$DDN_IN_BUCKET" "$DDN_OUT_BUCKET"; do
   echo "[INFO] Creating bucket: $b"
   aws s3api create-bucket \
     --bucket "$b" \

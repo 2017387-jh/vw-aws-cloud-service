@@ -16,14 +16,14 @@ if errorlevel 1 (
 
 
 REM ===== Image URI =====
-set IMAGE_URI_BASE=%ACCOUNT_ID%.dkr.ecr.%AWS_REGION%.amazonaws.com/%VW_ECR_REPO%
-set IMAGE_URI_TAG=%IMAGE_URI_BASE%:%VW_ECR_TAG%
+set IMAGE_URI_BASE=%ACCOUNT_ID%.dkr.ecr.%AWS_REGION%.amazonaws.com/%DDN_ECR_REPO%
+set IMAGE_URI_TAG=%IMAGE_URI_BASE%:%DDN_ECR_TAG%
 set IMAGE_URI_LATEST=%IMAGE_URI_BASE%:latest
 
 REM ===== Tagging =====
-docker image inspect %VW_LOCAL_IMAGE%:%VW_ECR_TAG% >nul 2>&1
+docker image inspect %DDN_LOCAL_IMG%:%DDN_ECR_TAG% >nul 2>&1
 if %errorlevel%==0 (
-    set SRC_REF=%VW_LOCAL_IMAGE%:%VW_ECR_TAG%
+    set SRC_REF=%DDN_LOCAL_IMG%:%DDN_ECR_TAG%
 ) else (
     for /f "tokens=*" %%I in ('docker images -q ^| head -n 1') do set SRC_REF=%%I
 )

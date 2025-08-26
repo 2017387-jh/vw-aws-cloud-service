@@ -1,4 +1,4 @@
-# 1-1. Create IAM Role (Assume Policy 지정)
+# 1-1. Create IAM Role (Assume Policy)
 aws iam create-role \
   --role-name AmazonSageMaker-ExecutionRole \
   --assume-role-policy-document '{
