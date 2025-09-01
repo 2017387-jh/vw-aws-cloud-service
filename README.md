@@ -17,6 +17,11 @@ Default region name: ap-northeast-2
 Default output format: json
 ```
 
+## Upload Docker Image & Create Sagemaker endpoint
+생성한 Docker Image를 ECR에 업로드하고, Sagemaker의 Endpoint를 만드는 과정
+
+1. Docker Image 생성
+   1. 
 
 ```
 vw-aws-cloud-service
