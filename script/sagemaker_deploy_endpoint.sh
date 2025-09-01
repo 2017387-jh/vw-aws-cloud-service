@@ -20,9 +20,7 @@ fi
 ASYNC_JSON=$(cat <<JSON
 {
   "ClientConfig": {
-    $( [[ -n "${DDN_MAX_CONCURRENCY:-}" ]] && echo "\"MaxConcurrentInvocationsPerInstance\": ${DDN_MAX_CONCURRENCY}" )
-    $( [[ -n "${DDN_MAX_CONCURRENCY:-}" && -n "${DDN_INVOCATION_TIMEOUT:-}" ]] && echo "," )
-    $( [[ -n "${DDN_INVOCATION_TIMEOUT:-}" ]] && echo "\"InvocationTimeoutSeconds\": ${DDN_INVOCATION_TIMEOUT}" )
+    "MaxConcurrentInvocationsPerInstance": ${DDN_MAX_CONCURRENCY}
   },
   "OutputConfig": {
     "S3OutputPath": "${DDN_ASYNC_S3_OUTPUT}"
