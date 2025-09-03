@@ -1,0 +1,89 @@
+#!/usr/bin/env bash
+set -euo pipefail
+source .env
+aws configure set region "$AWS_REGION"
+
+# ALB SG
+ALB_SG_ID=$(aws ec2 create-security-group \
+  --vpc-id "$DDN_VPC_ID" \
+  --group-name "$DDN_ALB_SG_NAME" \
+  --description "ALB SG" \
+  --query 'GroupId' --output text 2>/dev/null || true)
+
+if [ -z "${ALB_SG_ID:-}" ]; then
+  ALB_SG_ID=$(aws ec2 describe-security-groups --filters "Name=vpc-id,Values=$DDN_VPC_ID" "Name=group-name,Values=$DDN_ALB_SG_NAME" --query 'SecurityGroups[0].GroupId' --output text)
+fi
+echo "[INFO] ALB SG: $ALB_SG_ID"
+
+# ALB SG 인바운드 80
+aws ec2 authorize-security-group-ingress --group-id "$ALB_SG_ID" \
+  --ip-permissions "IpProtocol=tcp,FromPort=80,ToPort=80,IpRanges=[{CidrIp=0.0.0.0/0}]" >/dev/null 2>/dev/null || true
+
+# ECS SG 인바운드: ALB SG에서 오는 트래픽만 허용
+ECS_SG_ID=$(aws ec2 describe-security-groups --filters "Name=vpc-id,Values=$DDN_VPC_ID" "Name=group-name,Values=$DDN_ECS_SG_NAME" --query 'SecurityGroups[0].GroupId' --output text)
+for P in "$DDN_FLASK_PORT" "$DDN_TRITON_HTTP_PORT" "$DDN_TRITON_GRPC_PORT"; do
+  aws ec2 authorize-security-group-ingress --group-id "$ECS_SG_ID" \
+    --ip-permissions "IpProtocol=tcp,FromPort=$P,ToPort=$P,UserIdGroupPairs=[{GroupId=$ALB_SG_ID}]" >/dev/null 2>/dev/null || true
+done
+
+# ALB 생성
+IFS=',' read -r SUBNET1 SUBNET2 <<< "$DDN_SUBNET_IDS"
+ALB_ARN=$(aws elbv2 create-load-balancer \
+  --name "$DDN_ALB_NAME" \
+  --type application \
+  --security-groups "$ALB_SG_ID" \
+  --subnets $SUBNET1 $SUBNET2 \
+  --query 'LoadBalancers[0].LoadBalancerArn' --output text 2>/dev/null || true)
+
+if [ -z "${ALB_ARN:-}" ]; then
+  ALB_ARN=$(aws elbv2 describe-load-balancers --names "$DDN_ALB_NAME" --query 'LoadBalancers[0].LoadBalancerArn' --output text)
+fi
+echo "[INFO] ALB ARN: $ALB_ARN"
+
+# Target Groups
+TG_FLASK_ARN=$(aws elbv2 create-target-group \
+  --name "$DDN_TG_FLASK" \
+  --protocol HTTP --port "$DDN_FLASK_PORT" \
+  --vpc-id "$DDN_VPC_ID" \
+  --target-type ip \
+  --health-check-path "$DDN_HEALTH_PATH" \
+  --health-check-interval-seconds "$DDN_HEALTH_INTERVAL" \
+  --health-check-timeout-seconds "$DDN_HEALTH_TIMEOUT" \
+  --healthy-threshold-count "$DDN_HEALTH_HEALTHY" \
+  --unhealthy-threshold-count "$DDN_HEALTH_UNHEALTHY" \
+  --query 'TargetGroups[0].TargetGroupArn' --output text 2>/dev/null || true)
+if [ -z "${TG_FLASK_ARN:-}" ]; then
+  TG_FLASK_ARN=$(aws elbv2 describe-target-groups --names "$DDN_TG_FLASK" --query 'TargetGroups[0].TargetGroupArn' --output text)
+fi
+echo "[INFO] TG Flask: $TG_FLASK_ARN"
+
+TG_TRITON_ARN=$(aws elbv2 create-target-group \
+  --name "$DDN_TG_TRITON" \
+  --protocol HTTP --port "$DDN_TRITON_GRPC_PORT" \
+  --protocol-version HTTP2 \
+  --vpc-id "$DDN_VPC_ID" \
+  --target-type ip \
+  --query 'TargetGroups[0].TargetGroupArn' --output text 2>/dev/null || true)
+if [ -z "${TG_TRITON_ARN:-}" ]; then
+  TG_TRITON_ARN=$(aws elbv2 describe-target-groups --names "$DDN_TG_TRITON" --query 'TargetGroups[0].TargetGroupArn' --output text)
+fi
+echo "[INFO] TG Triton gRPC: $TG_TRITON_ARN"
+
+# 리스너 80
+LISTENER_ARN=$(aws elbv2 create-listener \
+  --load-balancer-arn "$ALB_ARN" \
+  --protocol HTTP --port 80 \
+  --default-actions "Type=forward,TargetGroupArn=$TG_FLASK_ARN" \
+  --query 'Listeners[0].ListenerArn' --output text 2>/dev/null || true)
+if [ -z "${LISTENER_ARN:-}" ]; then
+  LISTENER_ARN=$(aws elbv2 describe-listeners --load-balancer-arn "$ALB_ARN" --query 'Listeners[0].ListenerArn' --output text)
+fi
+
+# 경로기반 라우팅: /triton/* → gRPC TG
+aws elbv2 create-rule \
+  --listener-arn "$LISTENER_ARN" \
+  --priority 10 \
+  --conditions Field=path-pattern,Values='/triton*' \
+  --actions Type=forward,TargetGroupArn="$TG_TRITON_ARN" >/dev/null 2>/dev/null || true
+
+echo "[OK] ALB and target groups ready."
