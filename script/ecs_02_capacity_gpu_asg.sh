@@ -8,7 +8,7 @@ AMI_ID=$(aws ssm get-parameters --names /aws/service/ecs/optimized-ami/amazon-li
   --query 'Parameters[0].Value' --output text)
 echo "[INFO] Using ECS GPU AMI: $AMI_ID"
 
-# SG 생성: ECS 인스턴스용
+# SG(Security Group) 생성: ECS 인스턴스용
 ECS_SG_ID=$(aws ec2 create-security-group \
   --vpc-id "$DDN_VPC_ID" \
   --group-name "$DDN_ECS_SG_NAME" \
