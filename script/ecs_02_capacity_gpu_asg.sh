@@ -43,7 +43,7 @@ LT_ID=$(aws ec2 create-launch-template \
   --launch-template-name "$DDN_LAUNCH_TEMPLATE_NAME" \
   --launch-template-data "{
     \"ImageId\": \"$AMI_ID\",
-    \"InstanceType\": \"$DDN_INSTANCE_TYPE\",
+    \"InstanceType\": \"$DDN_ECS_INSTANCE_TYPE\",
     \"IamInstanceProfile\": {\"Name\": \"ecsInstanceRole\"},
     \"SecurityGroupIds\": [\"$ECS_SG_ID\"],
     \"UserData\": \"$(echo -n "$USERDATA" | base64 -w0)\"

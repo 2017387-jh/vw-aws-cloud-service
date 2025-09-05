@@ -33,7 +33,7 @@ echo "[INFO] Creating ASYNC Endpoint Config: $DDN_ENDPOINT_CONFIG"
 aws sagemaker create-endpoint-config \
   --region "$AWS_REGION" \
   --endpoint-config-name "$DDN_ENDPOINT_CONFIG" \
-  --production-variants VariantName=AllTraffic,ModelName=$DDN_MODEL_NAME,InitialInstanceCount=1,InstanceType=ml.g4dn.xlarge \
+  --production-variants VariantName=AllTraffic,ModelName=$DDN_MODEL_NAME,InitialInstanceCount=${DDN_SM_INITIAL_INSTANCE_COUNT},InstanceType=${DDN_SM_INSTANCE_TYPE} \
   --async-inference-config "${ASYNC_JSON}"
 
 # 엔드포인트가 이미 있으면 업데이트, 없으면 생성
