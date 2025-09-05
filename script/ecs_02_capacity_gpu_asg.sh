@@ -53,7 +53,7 @@ echo "[INFO] LaunchTemplate: $LT_ID"
 aws autoscaling create-auto-scaling-group \
   --auto-scaling-group-name "$DDN_ASG_NAME" \
   --launch-template "LaunchTemplateId=$LT_ID,Version=\$Latest" \
-  --min-size "$DDN_MIN_SIZE" --desired-capacity "$DDN_DESIRED_SIZE" --max-size "$DDN_MAX_SIZE" \
+  --min-size "$DDN_MIN_CAPACITY" --desired-capacity "$DDN_DESIRED_CAPACITY" --max-size "$DDN_MAX_CAPACITY" \
   --vpc-zone-identifier "$DDN_SUBNET_IDS" >/dev/null 2>/dev/null || true
 
 echo "[OK] ASG created."
