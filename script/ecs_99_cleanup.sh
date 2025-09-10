@@ -10,7 +10,18 @@ aws ecs delete-service --cluster "$DDN_ECS_CLUSTER" --service "$DDN_ECS_SERVICE"
 aws autoscaling update-auto-scaling-group --auto-scaling-group-name "$DDN_ASG_NAME" --min-size 0 --desired-capacity 0
 sleep 10
 aws autoscaling delete-auto-scaling-group --auto-scaling-group-name "$DDN_ASG_NAME" --force-delete
-aws ec2 delete-launch-template --launch-template-name "$DDN_LAUNCH_TEMPLATE_NAME"
+
+LT_NAME="$DDN_LAUNCH_TEMPLATE_NAME"
+LT_ID=$(aws ec2 describe-launch-templates \
+  --launch-template-names "$LT_NAME" \
+  --query 'LaunchTemplates[0].LaunchTemplateId' --output text 2>/dev/null)
+
+if [ -n "$LT_ID" ] && [ "$LT_ID" != "None" ]; then
+  aws ec2 delete-launch-template --launch-template-name "$LT_NAME"
+  echo "[OK] Launch Template deleted: $LT_NAME"
+else
+  echo "[INFO] Launch Template not found: $LT_NAME"
+fi
 
 ALB_ARN=$(aws elbv2 describe-load-balancers --names "$DDN_ALB_NAME" --query 'LoadBalancers[0].LoadBalancerArn' --output text 2>/dev/null)
 if [ -n "$ALB_ARN" ]; then
