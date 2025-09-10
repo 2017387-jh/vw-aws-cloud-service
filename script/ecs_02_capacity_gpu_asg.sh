@@ -57,16 +57,26 @@ if [ -z "${LT_ID:-}" ] || [ "$LT_ID" = "None" ]; then
 fi
 echo "[INFO] LaunchTemplate: $LT_ID"
 
-# Auto Scaling Group 생성
-aws autoscaling create-auto-scaling-group \
-  --auto-scaling-group-name "$DDN_ASG_NAME" \
-  --launch-template "LaunchTemplateId=$LT_ID,Version=\$Latest" \
-  --min-size "$DDN_MIN_CAPACITY" \
-  --desired-capacity "$DDN_DESIRED_CAPACITY" \
-  --max-size "$DDN_MAX_CAPACITY" \
-  --vpc-zone-identifier "$DDN_SUBNET_IDS"
-
-echo "[OK] ASG created: $DDN_ASG_NAME"
+# Auto Scaling Group 생성 (없으면 생성, 있으면 업데이트)
+if aws autoscaling describe-auto-scaling-groups --auto-scaling-group-names "$DDN_ASG_NAME" --query 'AutoScalingGroups[0].AutoScalingGroupName' --output text 2>/dev/null | grep -q "$DDN_ASG_NAME"; then
+  echo "[INFO] ASG already exists: $DDN_ASG_NAME → updating..."
+  aws autoscaling update-auto-scaling-group \
+    --auto-scaling-group-name "$DDN_ASG_NAME" \
+    --launch-template "LaunchTemplateId=$LT_ID,Version=\$Latest" \
+    --min-size "$DDN_MIN_CAPACITY" \
+    --desired-capacity "$DDN_DESIRED_CAPACITY" \
+    --max-size "$DDN_MAX_CAPACITY" \
+    --vpc-zone-identifier "$DDN_SUBNET_IDS"
+else
+  aws autoscaling create-auto-scaling-group \
+    --auto-scaling-group-name "$DDN_ASG_NAME" \
+    --launch-template "LaunchTemplateId=$LT_ID,Version=\$Latest" \
+    --min-size "$DDN_MIN_CAPACITY" \
+    --desired-capacity "$DDN_DESIRED_CAPACITY" \
+    --max-size "$DDN_MAX_CAPACITY" \
+    --vpc-zone-identifier "$DDN_SUBNET_IDS"
+  echo "[OK] ASG created: $DDN_ASG_NAME"
+fi
 
 # Capacity Provider 생성
 ASG_ARN=$(aws autoscaling describe-auto-scaling-groups \
@@ -81,8 +91,6 @@ else
     --auto-scaling-group-provider "autoScalingGroupArn=$ASG_ARN,managedScaling={status=ENABLED,targetCapacity=100,minimumScalingStepSize=1,maximumScalingStepSize=1},managedTerminationProtection=DISABLED"
   echo "[OK] Capacity Provider created: ${DDN_ASG_NAME}-cp"
 fi
-
-echo "[OK] Capacity Provider created: ${DDN_ASG_NAME}-cp"
 
 # 클러스터에 Capacity Provider 연결
 aws ecs put-cluster-capacity-providers \
