@@ -83,6 +83,7 @@ echo "[OK] Capacity Provider created: ${DDN_ASG_NAME}-cp"
 aws ecs put-cluster-capacity-providers \
   --cluster "$DDN_ECS_CLUSTER" \
   --capacity-providers "${DDN_ASG_NAME}-cp" \
+  --no-cli-pager \
   --default-capacity-provider-strategy capacityProvider="${DDN_ASG_NAME}-cp",weight=1
 
 echo "[OK] Capacity Provider attached to cluster: $DDN_ECS_CLUSTER"
