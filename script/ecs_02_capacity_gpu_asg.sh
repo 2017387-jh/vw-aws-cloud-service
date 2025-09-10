@@ -73,9 +73,14 @@ ASG_ARN=$(aws autoscaling describe-auto-scaling-groups \
   --auto-scaling-group-names "$DDN_ASG_NAME" \
   --query 'AutoScalingGroups[0].AutoScalingGroupARN' --output text)
 
-aws ecs create-capacity-provider \
-  --name "${DDN_ASG_NAME}-cp" \
-  --auto-scaling-group-provider "autoScalingGroupArn=$ASG_ARN,managedScaling={status=ENABLED,targetCapacity=100,minimumScalingStepSize=1,maximumScalingStepSize=1},managedTerminationProtection=DISABLED"
+if aws ecs describe-capacity-providers --capacity-providers "${DDN_ASG_NAME}-cp" >/dev/null 2>&1; then
+  echo "[INFO] Capacity Provider already exists: ${DDN_ASG_NAME}-cp"
+else
+  aws ecs create-capacity-provider \
+    --name "${DDN_ASG_NAME}-cp" \
+    --auto-scaling-group-provider "autoScalingGroupArn=$ASG_ARN,managedScaling={status=ENABLED,targetCapacity=100,minimumScalingStepSize=1,maximumScalingStepSize=1},managedTerminationProtection=DISABLED"
+  echo "[OK] Capacity Provider created: ${DDN_ASG_NAME}-cp"
+fi
 
 echo "[OK] Capacity Provider created: ${DDN_ASG_NAME}-cp"
 
