@@ -78,19 +78,42 @@ else
   echo "[OK] ASG created: $DDN_ASG_NAME"
 fi
 
-# Capacity Provider 생성
+# Capacity Provider 생성/재생성 로직
 ASG_ARN=$(aws autoscaling describe-auto-scaling-groups \
   --auto-scaling-group-names "$DDN_ASG_NAME" \
   --query 'AutoScalingGroups[0].AutoScalingGroupARN' --output text)
 
-if aws ecs describe-capacity-providers --capacity-providers "${DDN_ASG_NAME}-cp" >/dev/null 2>&1; then
-  echo "[INFO] Capacity Provider already exists: ${DDN_ASG_NAME}-cp"
-else
+CP_NAME="${DDN_ASG_NAME}-cp"
+CP_STATUS=$(aws ecs describe-capacity-providers \
+  --capacity-providers "$CP_NAME" \
+  --query 'capacityProviders[0].status' \
+  --output text 2>/dev/null || echo "NONE")
+
+if [ "$CP_STATUS" = "ACTIVE" ]; then
+  echo "[INFO] Capacity Provider already ACTIVE: $CP_NAME"
+elif [ "$CP_STATUS" = "INACTIVE" ]; then
+  echo "[INFO] Capacity Provider exists but INACTIVE, deleting..."
+  # 클러스터에서 detach
+  aws ecs put-cluster-capacity-providers \
+    --cluster "$DDN_ECS_CLUSTER" \
+    --capacity-providers [] \
+    --default-capacity-provider-strategy [] \
+    >/dev/null 2>&1 || true
+  # 삭제
+  aws ecs delete-capacity-provider --capacity-provider "$CP_NAME"
+  # 재생성
   aws ecs create-capacity-provider \
-    --name "${DDN_ASG_NAME}-cp" \
+    --name "$CP_NAME" \
     --auto-scaling-group-provider "autoScalingGroupArn=$ASG_ARN,managedScaling={status=ENABLED,targetCapacity=100,minimumScalingStepSize=1,maximumScalingStepSize=1},managedTerminationProtection=DISABLED"
-  echo "[OK] Capacity Provider created: ${DDN_ASG_NAME}-cp"
+  echo "[OK] Capacity Provider recreated: $CP_NAME"
+else
+  echo "[INFO] Capacity Provider not found, creating new..."
+  aws ecs create-capacity-provider \
+    --name "$CP_NAME" \
+    --auto-scaling-group-provider "autoScalingGroupArn=$ASG_ARN,managedScaling={status=ENABLED,targetCapacity=100,minimumScalingStepSize=1,maximumScalingStepSize=1},managedTerminationProtection=DISABLED"
+  echo "[OK] Capacity Provider created: $CP_NAME"
 fi
+
 
 # 클러스터에 Capacity Provider 연결
 aws ecs put-cluster-capacity-providers \
