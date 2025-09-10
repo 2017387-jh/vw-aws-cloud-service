@@ -43,7 +43,22 @@ ALB_SG_ID=$(aws ec2 describe-security-groups --filters "Name=vpc-id,Values=$DDN_
 [ "$ECS_SG_ID" != "None" ] && aws ec2 delete-security-group --group-id "$ECS_SG_ID"
 [ "$ALB_SG_ID" != "None" ] && aws ec2 delete-security-group --group-id "$ALB_SG_ID"
 
-aws ecs delete-capacity-provider --capacity-provider "${DDN_ASG_NAME}-cp" 2>/dev/null
+# Detach capacity provider from cluster first
+if aws ecs describe-clusters --clusters "$DDN_ECS_CLUSTER" --query 'clusters[0].status' --output text 2>/dev/null | grep -q "ACTIVE"; then
+  aws ecs put-cluster-capacity-providers \
+    --cluster "$DDN_ECS_CLUSTER" \
+    --capacity-providers [] \
+    --default-capacity-provider-strategy [] \
+    >/dev/null 2>&1 || true
+fi
+
+# Delete capacity provider
+if aws ecs describe-capacity-providers --capacity-providers "${DDN_ASG_NAME}-cp" >/dev/null 2>&1; then
+  aws ecs delete-capacity-provider --capacity-provider "${DDN_ASG_NAME}-cp"
+  echo "[OK] Capacity Provider deleted: ${DDN_ASG_NAME}-cp"
+else
+  echo "[INFO] Capacity Provider not found: ${DDN_ASG_NAME}-cp"
+fi
 
 set -e
 echo "[OK] Cleanup done."
