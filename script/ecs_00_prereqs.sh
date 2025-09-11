@@ -2,7 +2,8 @@
 set -euo pipefail
 source .env
 
-sudo yum install -y gettext jq -q
+echo "[INFO] Installing required packages (gettext, jq)..."
+sudo yum install -y -q gettext jq
 
 command -v aws >/dev/null || { echo "[ERROR] aws CLI not found"; exit 1; }
 aws sts get-caller-identity >/dev/null || { echo "[ERROR] AWS credentials not configured"; exit 1; }
