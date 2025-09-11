@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
+set -a   # 자동으로 모든 변수 export
 source .env
+set +a
 aws configure set region "$AWS_REGION"
 
 echo "[INFO] Installing required packages (gettext, jq)..."
