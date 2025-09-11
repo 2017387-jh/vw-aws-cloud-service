@@ -4,8 +4,8 @@
   "requiresCompatibilities": ["EC2"],
   "cpu": "2048",
   "memory": "4096",
-  "executionRoleArn": "arn:aws:iam::${ACCOUNT_ID}:role/ecsTaskExecutionRole",
-  "taskRoleArn": "arn:aws:iam::${ACCOUNT_ID}:role/ecsTaskExecutionRole",
+  "executionRoleArn": "${DDN_ECS_TASK_ROLE_ARN}",
+  "taskRoleArn": "${DDN_ECS_TASK_ROLE_ARN}",
   "containerDefinitions": [
     {
       "name": "${DDN_ECS_CONTAINER}",
