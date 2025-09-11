@@ -3,6 +3,9 @@ set -euo pipefail
 source .env
 aws configure set region "$AWS_REGION"
 
+echo "[INFO] Installing required packages (gettext, jq)..."
+sudo yum install -y -q gettext jq
+
 aws logs create-log-group --log-group-name "/ecs/$DDN_ECS_TASK_FAMILY" >/dev/null 2>/dev/null || true
 
 # envsubst로 JSON 생성
