@@ -72,6 +72,18 @@ aws ecs put-cluster-capacity-providers \
 
 aws ecs delete-capacity-provider --capacity-provider "${DDN_ASG_NAME}-cp" 2>/dev/null
 
+# Task Definition 삭제 (모든 리비전 정리)
+echo "[INFO] Deregistering all task definitions for family: $DDN_ECS_TASK_FAMILY"
+TASK_DEFS=$(aws ecs list-task-definitions \
+  --family-prefix $DDN_ECS_TASK_FAMILY \
+  --query 'taskDefinitionArns' --output text 2>/dev/null)
+
+for TD in $TASK_DEFS; do
+  ARN=$(aws ecs deregister-task-definition --task-definition $TD \
+        --query 'taskDefinition.taskDefinitionArn' --output text)
+  echo "[OK] Deregistered $ARN"
+done
+
 # EC2 인스턴스 종료 대기
 echo "[INFO] Waiting for EC2 instances to terminate..."
 INSTANCE_IDS=$(aws ec2 describe-instances \
@@ -84,18 +96,6 @@ if [ -n "$INSTANCE_IDS" ]; then
 else
   echo "[INFO] No instances found."
 fi
-
-# Task Definition 삭제 (모든 revision 비활성화)
-echo "[INFO] Deregistering all task definitions for family: $DDN_ECS_TASK_FAMILY"
-TASK_DEFS=$(aws ecs list-task-definitions \
-  --family-prefix $DDN_ECS_TASK_FAMILY \
-  --query 'taskDefinitionArns' --output text)
-
-for TD in $TASK_DEFS; do
-  aws ecs deregister-task-definition --task-definition $TD
-  echo "[OK] Deregistered $TD"
-done
-
 
 set -e
 echo "[OK] Cleanup done."
