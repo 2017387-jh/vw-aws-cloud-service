@@ -40,7 +40,7 @@ if [ -n "$ALB_ARN" ]; then
 fi
 
 # Target Groups 삭제
-for TG in "$DDN_TG_FLASK" "$DDN_TG_TRITON"; do
+for TG in "$DDN_TG_FLASK"; do
   TG_ARN=$(aws elbv2 describe-target-groups --names "$TG" \
     --query 'TargetGroups[0].TargetGroupArn' --output text 2>/dev/null)
   [ -n "$TG_ARN" ] && aws elbv2 delete-target-group --target-group-arn "$TG_ARN"
