@@ -85,5 +85,17 @@ else
   echo "[INFO] No instances found."
 fi
 
+# Task Definition 삭제 (모든 revision 비활성화)
+echo "[INFO] Deregistering all task definitions for family: $DDN_ECS_TASK_FAMILY"
+TASK_DEFS=$(aws ecs list-task-definitions \
+  --family-prefix $DDN_ECS_TASK_FAMILY \
+  --query 'taskDefinitionArns' --output text)
+
+for TD in $TASK_DEFS; do
+  aws ecs deregister-task-definition --task-definition $TD
+  echo "[OK] Deregistered $TD"
+done
+
+
 set -e
 echo "[OK] Cleanup done."
