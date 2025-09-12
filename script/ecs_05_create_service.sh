@@ -24,13 +24,13 @@ SUBNETS_JSON=$(printf '"%s",' ${DDN_SUBNET_IDS//,/ } | sed 's/,$//')
 # 최신 리비전
 REV=$(aws ecs list-task-definitions \
   --family-prefix "$DDN_ECS_TASK_FAMILY" \
-  --sort DESC --query 'taskDefinitionArns[0]' --output text | cut -d: -f6)
+  --sort DESC --query 'taskDefinitionArns[0]' --output text)
 
 # ECS 서비스 생성 (Flask만 ALB 연결)
 aws ecs create-service \
   --cluster "$DDN_ECS_CLUSTER" \
   --service-name "$DDN_ECS_SERVICE" \
-  --task-definition "$DDN_ECS_TASK_FAMILY:$REV" \
+  --task-definition "$REV" \
   --desired-count "$DDN_ECS_DESIRED_COUNT" \
   --launch-type EC2 \
   --network-configuration "awsvpcConfiguration={subnets=[$SUBNETS_JSON],securityGroups=[\"$ECS_SG_ID\"],assignPublicIp=DISABLED}" \
