@@ -12,7 +12,7 @@
       "image": "${DDN_IMAGE_URI}",
       "essential": true,
       "entryPoint": ["sh","-c"],
-      "command": ["tritonserver --model-repository=/models --http-port=${DDN_TRITON_HTTP_PORT} --grpc-port=${DDN_TRITON_GRPC_PORT} & python3 /opt/program/inference_handler.py & wait"],
+      "command": ["tritonserver --model-repository=/opt/ml/model --http-port=${DDN_TRITON_HTTP_PORT} --grpc-port=${DDN_TRITON_GRPC_PORT} & python3 /opt/program/inference_handler.py & wait"],
       "portMappings": [
         { "containerPort": ${DDN_FLASK_PORT}, "protocol": "tcp" },
         { "containerPort": ${DDN_TRITON_HTTP_PORT}, "protocol": "tcp" },
@@ -21,7 +21,7 @@
       "environment": [
         { "name": "HTTP_SERVER_PORT", "value": "${DDN_TRITON_HTTP_PORT}"},
         { "name": "GRPC_SERVER_PORT", "value": "${DDN_TRITON_GRPC_PORT}"},
-        { "name": "MODEL_STORE", "value": "/models"}
+        { "name": "MODEL_STORE", "value": "/opt/ml/model"}
       ],
       "logConfiguration": {
         "logDriver": "awslogs",
