@@ -4,8 +4,17 @@ source .env
 aws configure set region "$AWS_REGION"
 
 set +e
-aws ecs update-service --cluster "$DDN_ECS_CLUSTER" --service "$DDN_ECS_SERVICE" --desired-count 0
-aws ecs delete-service --cluster "$DDN_ECS_CLUSTER" --service "$DDN_ECS_SERVICE" --force
+aws ecs update-service \
+  --cluster "$DDN_ECS_CLUSTER" \
+  --service "$DDN_ECS_SERVICE" \
+  --desired-count 0 \
+  --query 'service.serviceName' --output text
+
+aws ecs delete-service \
+  --cluster "$DDN_ECS_CLUSTER" \
+  --service "$DDN_ECS_SERVICE" \
+  --force \
+  --query 'service.status' --output text
 
 aws autoscaling update-auto-scaling-group \
   --auto-scaling-group-name "$DDN_ASG_NAME" \
