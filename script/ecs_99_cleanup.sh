@@ -56,7 +56,13 @@ for TG in "$DDN_TG_FLASK"; do
 done
 
 # ECS 클러스터 삭제
-aws ecs delete-cluster --cluster "$DDN_ECS_CLUSTER"
+echo "[INFO] Deleting ECS cluster: $DDN_ECS_CLUSTER ..."
+CLUSTER_STATUS=$(aws ecs delete-cluster \
+  --cluster "$DDN_ECS_CLUSTER" \
+  --query 'cluster.status' \
+  --output text 2>/dev/null || echo "NOT_FOUND")
+
+echo "[OK] ECS cluster delete status: $CLUSTER_STATUS"
 
 # 로그 그룹 삭제
 aws logs delete-log-group --log-group-name "/ecs/$DDN_ECS_TASK_FAMILY"
