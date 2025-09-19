@@ -1,133 +1,0 @@
-Script started on 2025-09-12 07:54:22+00:00 [TERM="screen-256color" TTY="/dev/pts/1" COLUMNS="275" LINES="53"]
-ㅎkcloudshell-user@:~/vw-aws-cloud-service/script\[?2004hscript $ ㅎ햐ㅎ[K[K[Kgit p[Kpull origin main
-[?2004lremote: Enumerating objects: 9, done.[K
-remote: Counting objects:  11% (1/9)[Kremote: Counting objects:  22% (2/9)[Kremote: Counting objects:  33% (3/9)[Kremote: Counting objects:  44% (4/9)[Kremote: Counting objects:  55% (5/9)[Kremote: Counting objects:  66% (6/9)[Kremote: Counting objects:  77% (7/9)[Kremote: Counting objects:  88% (8/9)[Kremote: Counting objects: 100% (9/9)[Kremote: Counting objects: 100% (9/9), done.[K
-remote: Compressing objects:  50% (1/2)[Kremote: Compressing objects: 100% (2/2)[Kremote: Compressing objects: 100% (2/2), done.[K
-Unpacking objects:  20% (1/5)Unpacking objects:  40% (2/5)Unpacking objects:  60% (3/5)Unpacking objects:  80% (4/5)Unpacking objects: 100% (5/5)Unpacking objects: 100% (5/5), 1.34 KiB | 1.34 MiB/s, done.
-remote: Total 5 (delta 3), reused 5 (delta 3), pack-reused 0 (from 0)[K
-From https://github.com/2017387-jh/vw-aws-cloud-service
- * branch            main       -> FETCH_HEAD
-   272e499..984a1e7  main       -> origin/main
-Updating 272e499..984a1e7
-Fast-forward
- script/.env                  |  3 [32m++[m[31m-[m
- script/ecs_07_autoscaling.sh | 61 [32m++++++++++++++++++++++++++++++++++++++++++[m[31m-------------------[m
- 2 files changed, 44 insertions(+), 20 deletions(-)
-kcloudshell-user@:~/vw-aws-cloud-service/script\[?2004hscript $ ./ecs_07_autoscaling.sh [K
-[?2004l[INFO] Start ECS Auto Scaling setup for service: ddn-ecs-service in cluster: ddn-ecs-cluster
-[INFO] Checking existing scalable target...
-[INFO] Registering scalable target...
-[?1h={[m
-    "ScalableTargetARN": "arn:aws:application-autoscaling:ap-northeast-2:420509932186:scalable-target/0ec56e7566dcf39745ab887c26c7a9dc0059"[m
-}[m
-[K[?1l>[INFO] Applying CPU scaling policy (threshold=70%)...
-[?1h={[m
-    "PolicyARN": "arn:aws:autoscaling:ap-northeast-2:420509932186:scalingPolicy:6e7566dc-f397-45ab-887c-26c7a9dc0059:resource/ecs/service/ddn-ecs-cluster/ddn-ecs-service:policyName/ddn-ecs-service-cpu-scaling",[m
-    "Alarms": [[m
-        {[m
-            "AlarmName": "TargetTracking-service/ddn-ecs-cluster/ddn-ecs-service-AlarmHigh-23e32909-1d23-46af-9214-492ac33d2d19",[m
-            "AlarmARN": "arn:aws:cloudwatch:ap-northeast-2:420509932186:alarm:TargetTracking-service/ddn-ecs-cluster/ddn-ecs-service-AlarmHigh-23e32909-1d23-46af-9214-492ac33d2d19"[m
-        },[m
-        {[m
-            "AlarmName": "TargetTracking-service/ddn-ecs-cluster/ddn-ecs-service-AlarmLow-1110914b-c686-47e4-ba87-9982b99a0d81",[m
-            "AlarmARN": "arn:aws:cloudwatch:ap-northeast-2:420509932186:alarm:TargetTracking-service/ddn-ecs-cluster/ddn-ecs-service-AlarmLow-1110914b-c686-47e4-ba87-9982b99a0d81"[m
-        }[m
-    ][m
-}[m
-[K[?1l>[INFO] Applying Memory scaling policy (threshold=75%)...
-[?1h={[m
-    "PolicyARN": "arn:aws:autoscaling:ap-northeast-2:420509932186:scalingPolicy:6e7566dc-f397-45ab-887c-26c7a9dc0059:resource/ecs/service/ddn-ecs-cluster/ddn-ecs-service:policyName/ddn-ecs-service-mem-scaling",[m
-    "Alarms": [[m
-        {[m
-            "AlarmName": "TargetTracking-service/ddn-ecs-cluster/ddn-ecs-service-AlarmHigh-32aeb2a8-e747-4084-9183-96d1696334c4",[m
-            "AlarmARN": "arn:aws:cloudwatch:ap-northeast-2:420509932186:alarm:TargetTracking-service/ddn-ecs-cluster/ddn-ecs-service-AlarmHigh-32aeb2a8-e747-4084-9183-96d1696334c4"[m
-        },[m
-        {[m
-            "AlarmName": "TargetTracking-service/ddn-ecs-cluster/ddn-ecs-service-AlarmLow-e0a14d60-863e-4792-b8f5-9b9ff443154f",[m
-            "AlarmARN": "arn:aws:cloudwatch:ap-northeast-2:420509932186:alarm:TargetTracking-service/ddn-ecs-cluster/ddn-ecs-service-AlarmLow-e0a14d60-863e-4792-b8f5-9b9ff443154f"[m
-        }[m
-    ][m
-}[m
-[K[?1l>[OK] Auto Scaling setup complete for service: ddn-ecs-service
- - Min Capacity: 1
- - Max Capacity: 5
- - CPU High Threshold: 70%
- - Memory High Threshold: 75%
- - Scale In Cooldown: 60s
- - Scale Out Cooldown: 60s
-kcloudshell-user@:~/vw-aws-cloud-service/script\[?2004hscript $ d[K./[K[Kls
-[?2004l'$'                 [0m[01;32mecr_create_repository.sh[0m    [01;32mecr_push_docker_image.bat[0m   [01;32mecs_02_capacity_gpu_asg.sh[0m   [01;32mecs_06_update_service.sh[0m     [01;32ms3_create_bucket.sh[0m   [01;32msagemaker_create_iam_role.sh[0m        [01;32msagemaker_invoke_async_as_tif.sh[0m
- [01;32mdocker_clean.bat[0m   [01;32mecr_delete_repository.sh[0m    [01;32mecr_push_docker_image.sh[0m    [01;32mecs_03_alb_and_sg.sh[0m         [01;32mecs_07_autoscaling.sh[0m        [01;32ms3_delete_bucket.sh[0m   [01;32msagemaker_create_model.sh[0m           [01;32msample.txt[0m
- [01;32mdocker_clean.sh[0m    [01;32mecr_load_docker_image.bat[0m   [01;32mecs_00_prereqs.sh[0m           [01;32mecs_04_register_taskdef.sh[0m   [01;32mecs_98_delete_task_defs.sh[0m   [01;32ms3_download_file.sh[0m   [01;32msagemaker_deploy_endpoint.sh[0m        [01;32mtaskdef.json.tpl[0m
- [01;32mdownload.txt[0m       [01;32mecr_load_docker_image.sh[0m    [01;32mecs_01_create_cluster.sh[0m    [01;32mecs_05_create_service.sh[0m     [01;32mecs_99_cleanup.sh[0m            [01;32ms3_upload_file.sh[0m     [01;32msagemaker_invoke_async_as_json.sh[0m   [01;32mtest_input.tif[0m
-kcloudshell-user@:~/vw-aws-cloud-service/script\[?2004hscript $ ./ecs_99_cleanup.sh 
-[?2004l[?1h=ddn-ecs-service[m
-[K[?1l>[?1h=DRAINING[m
-[K[?1l>[?1h={[m
-    "LaunchTemplate": {[m
-        "LaunchTemplateId": "lt-054c59717a4dface3",[m
-        "LaunchTemplateName": "ddn-ecs-lt",[m
-        "CreateTime": "2025-09-12T06:17:44+00:00",[m
-        "CreatedBy": "arn:aws:iam::420509932186:user/jh4843kim",[m
-        "DefaultVersionNumber": 1,[m
-        "LatestVersionNumber": 1,[m
-        "Operator": {[m
-            "Managed": false[m
-        }[m
-    }[m
-}[m
-[K[?1l>[OK] Launch Template deleted: ddn-ecs-lt
-[?1h={[m
-    "cluster": {[m
-        "clusterArn": "arn:aws:ecs:ap-northeast-2:420509932186:cluster/ddn-ecs-cluster",[m
-        "clusterName": "ddn-ecs-cluster",[m
-        "status": "DEPROVISIONING",[m
-        "registeredContainerInstancesCount": 0,[m
-        "runningTasksCount": 0,[m
-        "pendingTasksCount": 0,[m
-        "activeServicesCount": 0,[m
-        "statistics": [],[m
-        "tags": [],[m
-        "settings": [[m
-            {[m
-                "name": "containerInsights",[m
-                "value": "disabled"[m
-            }[m
-        ],[m
-        "capacityProviders": [[m
-            "ddn-ecs-asg-cp"[m
-        ],[m
-        "defaultCapacityProviderStrategy": [[m
-            {[m
-                "capacityProvider": "ddn-ecs-asg-cp",[m
-                "weight": 1,[m
-                "base": 0[m
-            }[m
-        ],[m
-        "attachments": [[m
-            {[m
-                "id": "7bc6124e-40f4-4e18-b307-d92c7d91d45d",[m
-                "type": "managed_draining",[m
-                "status": "DELETING",[m
-                "details": [[m
-                    {[m
-                        "name": "capacityProviderName",[m
-                        "value": "ddn-ecs-asg-cp"[m
-                    },[m
-                    {[m
-                        "name": "autoScalingLifecycleHookName",[m
-                        "value": "ecs-managed-draining-termination-hook"[m
-                    }[m
-                ][m
-            },[m
-            {[m
-                "id": "9f614730-6d74-48e0-a9dd-d20f29bddb04",[m
-                "type": "as_policy",[m
-                "status": "DELETING",[m
-                "details": [[m
-                    {[m
-                        "name": "capacityProviderName",[m
-                        "value": "ddn-ecs-asg-cp"[m
-                    },[m
-:[K[K                    {[m
-:[K[K       
