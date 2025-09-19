@@ -27,5 +27,12 @@ echo "[INFO] Uploading image to S3 via presigned URL..."
 STATUS=$(curl -s -o /dev/null -w "%{http_code}" -X PUT --upload-file "$DDN_TEST_IMAGE_PATH" "$UPLOAD_URL")
 echo "[INFO] Upload finished with HTTP status: $STATUS"
 
+# Test-only: copy from IN bucket to OUT bucket
+echo "[INFO] Copying uploaded file from $DDN_IN_BUCKET to $DDN_OUT_BUCKET (test only)"
+aws s3 cp \
+  s3://$DDN_IN_BUCKET/$DDN_TEST_IMAGE_KEY \
+  s3://$DDN_OUT_BUCKET/$DDN_TEST_IMAGE_KEY \
+  --region $AWS_REGION
+
 rm -f upload_response.json
 echo "[INFO] Test finished."
