@@ -13,4 +13,4 @@ aws lambda create-function \
   --role arn:aws:iam::$ACCOUNT_ID:role/$DDN_LAMBDA_ROLE \
   --handler lambda_function.lambda_handler \
   --zip-file fileb://ddn_lambda_function.zip \
-  --environment "Variables={AWS_REGION=$AWS_REGION,DDN_IN_BUCKET=$DDN_IN_BUCKET,DDN_OUT_BUCKET=$DDN_OUT_BUCKET}"
+  --environment "Variables={DDN_IN_BUCKET=$DDN_IN_BUCKET,DDN_OUT_BUCKET=$DDN_OUT_BUCKET}"
