@@ -3,7 +3,7 @@ import json
 import os
 import urllib.parse
 
-s3 = boto3.client("s3", region_name=os.environ["AWS_REGION"])
+s3 = s3 = boto3.client("s3")
 
 def lambda_handler(event, context):
     # Get Query parameters from the event
