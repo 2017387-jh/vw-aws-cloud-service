@@ -10,7 +10,7 @@ echo "[INFO] Target S3 key: $DDN_TEST_IMAGE_KEY"
 echo "[INFO] Requesting presigned URL for upload..."
 aws lambda invoke \
   --function-name $DDN_LAMBDA_FUNC_NAME \
-  --payload "{\"queryStringParameters\":{\"mode\":\"upload\",\"file\":\"$IMAGE_KEY\"}}" \
+  --payload "{\"queryStringParameters\":{\"mode\":\"upload\",\"file\":\"$DDN_TEST_IMAGE_KEY\"}}" \
   upload_response.json \
   --region $AWS_REGION \
   --cli-binary-format raw-in-base64-out >/dev/null
