@@ -1,5 +1,9 @@
 # vw-aws-cloud-service
 
+## install python packages
+
+pip install -r requirements.txt
+
 ## CloudShell	
 - Clone
   - git clone https://github.com/2017387-jh/vw-aws-cloud-service.git

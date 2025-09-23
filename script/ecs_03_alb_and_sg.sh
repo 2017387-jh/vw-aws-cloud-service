@@ -80,3 +80,20 @@ if [ -z "${LISTENER_ARN:-}" ]; then
 fi
 
 echo "[OK] ALB → Flask only. Triton is internal-only."
+
+# ALB DNSName 가져오기
+ALB_DNS=$(aws elbv2 describe-load-balancers --names "$DDN_ALB_NAME" \
+  --query 'LoadBalancers[0].DNSName' --output text)
+
+echo "[INFO] ALB DNS: $ALB_DNS"
+
+# .env 파일 업데이트 (DDN_ALB_DNS 값 교체 or 추가)
+if grep -q '^DDN_ALB_DNS=' .env; then
+  sed -i "s|^DDN_ALB_DNS=.*|DDN_ALB_DNS=$ALB_DNS|" .env
+  echo "[INFO] Updated existing DDN_ALB_DNS in .env"
+else
+  echo "DDN_ALB_DNS=$ALB_DNS" >> .env
+  echo "[INFO] Added new DDN_ALB_DNS to .env"
+fi
+
+echo "[INFO] .env is now updated with DDN_ALB_DNS=$ALB_DNS"

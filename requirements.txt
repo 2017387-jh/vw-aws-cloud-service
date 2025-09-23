@@ -1,0 +1,5 @@
+# add comments for each package
+
+requests>=2.31.0  # HTTP library for making requests
+python-dotenv>=1.0.1  # For loading environment variables from .env file
+boto3>=1.35.0  # AWS SDK for Python
