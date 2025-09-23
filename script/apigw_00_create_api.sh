@@ -27,6 +27,7 @@ ALB_INTEG_ID=$(aws apigatewayv2 create-integration \
   --api-id $API_ID \
   --integration-type HTTP_PROXY \
   --integration-uri $ALB_URL \
+  --integration-method ANY \
   --payload-format-version 1.0 \
   --query 'IntegrationId' --output text)
 
