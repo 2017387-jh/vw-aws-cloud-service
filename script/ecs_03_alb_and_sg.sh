@@ -92,6 +92,7 @@ if grep -q '^DDN_ALB_DNS=' .env; then
   sed -i "s|^DDN_ALB_DNS=.*|DDN_ALB_DNS=$ALB_DNS|" .env
   echo "[INFO] Updated existing DDN_ALB_DNS in .env"
 else
+  echo "" >> .env
   echo "DDN_ALB_DNS=$ALB_DNS" >> .env
   echo "[INFO] Added new DDN_ALB_DNS to .env"
 fi
