@@ -2,6 +2,9 @@
 set -euo pipefail
 source .env
 
+echo "[INFO] Running cleanup before creating new API..."
+./apigw_99_cleanup.sh || true
+
 echo "[INFO] Creating API Gateway: $DDN_APIGW_NAME"
 
 # 1. Create API
