@@ -57,6 +57,6 @@ aws apigatewayv2 create-stage \
   --stage-name '$default' \
   --auto-deploy
 
-echo "[INFO] API Gateway deployed to stage: $DDN_APIGW_NAME/$default"
+echo "[INFO] API Gateway deployed to stage: $DDN_APIGW_NAME/\$default"
 echo "[INFO] API Gateway endpoint:"
 echo "https://$API_ID.execute-api.$AWS_REGION.amazonaws.com"
