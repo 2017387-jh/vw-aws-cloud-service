@@ -9,7 +9,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # ===== 설정 =====
-API_ENDPOINT = os.getenv("DDN_TEST_API_ENDPOINT")  # API Gateway 엔드포인트
+API_ENDPOINT = os.getenv("DDN_APIGW_ENDPOINT")  # API Gateway 엔드포인트
 LOCAL_FILE = os.getenv("DDN_TEST_IMAGE_PATH")      # 다운로드 받을 로컬 저장 경로
 S3_KEY = os.getenv("DDN_TEST_IMAGE_KEY")           # 다운로드할 S3 Key
 
@@ -22,7 +22,7 @@ start_time = time.perf_counter()
 # 1. Lambda 호출 → presigned URL 요청 (download 모드)
 print("[INFO] Requesting presigned URL for download from API Gateway...")
 try:
-    resp = requests.get(f"{API_ENDPOINT}?mode=download&file={S3_KEY}")
+    resp = requests.get(f"{API_ENDPOINT}/presign?mode=download&file={S3_KEY}")
     resp.raise_for_status()
     download_url = resp.json().get("url")
 except Exception as e:

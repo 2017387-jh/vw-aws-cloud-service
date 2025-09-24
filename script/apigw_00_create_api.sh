@@ -2,8 +2,18 @@
 set -euo pipefail
 source .env
 
-echo "[INFO] Running cleanup before creating new API..."
-./apigw_99_cleanup.sh || true
+echo "[INFO] Checking if API Gateway already exists: $DDN_APIGW_NAME"
+
+# 0. Check existing API
+EXISTING_API_ID=$(aws apigatewayv2 get-apis \
+  --query "Items[?Name=='$DDN_APIGW_NAME'].ApiId" \
+  --output text)
+
+if [[ -n "$EXISTING_API_ID" ]]; then
+  echo "[INFO] API Gateway '$DDN_APIGW_NAME' already exists with ID: $EXISTING_API_ID"
+  echo "[INFO] Skipping creation."
+  exit 0
+fi
 
 echo "[INFO] Creating API Gateway: $DDN_APIGW_NAME"
 

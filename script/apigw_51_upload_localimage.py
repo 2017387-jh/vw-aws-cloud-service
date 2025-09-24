@@ -9,7 +9,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # ===== 설정 =====
-API_ENDPOINT = os.getenv("DDN_TEST_API_ENDPOINT")  # .env 안에 API Gateway 엔드포인트 넣으시면 됩니다
+API_ENDPOINT = os.getenv("DDN_APIGW_ENDPOINT")  # .env 안에 API Gateway 엔드포인트 넣으시면 됩니다
 LOCAL_FILE = os.getenv("DDN_TEST_IMAGE_PATH")   # 로컬 파일 경로
 S3_KEY = os.getenv("DDN_TEST_IMAGE_KEY")        # S3 Key
 
@@ -22,7 +22,7 @@ start_time = time.perf_counter()
 # 1. Lambda 호출 → presigned URL 요청
 print("[INFO] Requesting presigned URL from API Gateway...")
 try:
-    resp = requests.get(f"{API_ENDPOINT}?mode=upload&file={S3_KEY}")
+    resp = requests.get(f"{API_ENDPOINT}/presign?mode=upload&file={S3_KEY}")
     resp.raise_for_status()
     upload_url = resp.json().get("url")
 except Exception as e:
