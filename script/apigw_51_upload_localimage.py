@@ -1,5 +1,6 @@
 import os
 import sys
+import time
 import requests
 from pathlib import Path
 from dotenv import load_dotenv
@@ -15,6 +16,8 @@ S3_KEY = os.getenv("DDN_TEST_IMAGE_KEY")        # S3 Key
 print("[INFO] Upload test started")
 print(f"[INFO] Local file: {LOCAL_FILE}")
 print(f"[INFO] Target S3 key: {S3_KEY}")
+
+start_time = time.perf_counter()
 
 # 1. Lambda 호출 → presigned URL 요청
 print("[INFO] Requesting presigned URL from API Gateway...")
@@ -47,5 +50,9 @@ if r.status_code != 200:
     print(f"[ERROR] Upload failed with HTTP status: {r.status_code}")
     sys.exit(1)
 
+end_time = time.perf_counter()
+elapsed_ms = (end_time - start_time) * 1000
+
 print(f"[INFO] Upload finished successfully (HTTP {r.status_code})")
+print(f"[INFO] Upload time: {elapsed_ms:.2f} ms")
 print(f"[INFO] File [{file_path}] is now stored in [{S3_KEY}] at S3 bucket (via presigned URL)")
