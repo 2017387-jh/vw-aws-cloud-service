@@ -1,2 +1,19 @@
 # temp files
 ./script/ddn_lambda_function.zip
+
+# logs
+*.log
+
+# virtual environment
+venv/
+__pycache__/
+*.pyc
+
+# IDE files
+.vscode/
+.idea/
+*.iml
+*.ipr
+*.iws
+.DS_Store
+

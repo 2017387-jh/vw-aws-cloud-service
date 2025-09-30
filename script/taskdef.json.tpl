@@ -19,9 +19,12 @@
         { "containerPort": ${DDN_TRITON_GRPC_PORT}, "protocol": "tcp" }
       ],
       "environment": [
+        { "name": "MODEL_STORE", "value": "/opt/ml/model"}
+        { "name": "APP_LOG_DIR", "value": "/app/logs"},
         { "name": "HTTP_SERVER_PORT", "value": "${DDN_TRITON_HTTP_PORT}"},
         { "name": "GRPC_SERVER_PORT", "value": "${DDN_TRITON_GRPC_PORT}"},
-        { "name": "MODEL_STORE", "value": "/opt/ml/model"}
+        { "name": "DDN_IN_BUCKET", "value": "${DDN_IN_BUCKET}"},
+        { "name": "DDN_OUT_BUCKET", "value": "${DDN_OUT_BUCKET}"},
       ],
       "logConfiguration": {
         "logDriver": "awslogs",
