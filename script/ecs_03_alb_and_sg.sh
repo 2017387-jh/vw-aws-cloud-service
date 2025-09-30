@@ -24,6 +24,11 @@ aws ec2 authorize-security-group-ingress --group-id "$ALB_SG_ID" \
 ECS_SG_ID=$(aws ec2 describe-security-groups \
   --filters "Name=vpc-id,Values=$DDN_VPC_ID" "Name=group-name,Values=$DDN_ECS_SG_NAME" \
   --query 'SecurityGroups[0].GroupId' --output text)
+if [ -z "$ECS_SG_ID" ] || [ "$ECS_SG_ID" = "None" ]; then
+  echo "[ERROR] ECS Security Group not found. Run ecs_02 script first."
+  exit 1
+fi
+echo "[INFO] ECS SG: $ECS_SG_ID"
 
 # Flask 포트만 ALB SG에서 허용
 aws ec2 authorize-security-group-ingress --group-id "$ECS_SG_ID" \
@@ -41,7 +46,7 @@ ALB_ARN=$(aws elbv2 create-load-balancer \
   --name "$DDN_ALB_NAME" \
   --type application \
   --security-groups "$ALB_SG_ID" \
-  --subnets $SUBNET1 $SUBNET2 \
+  --subnets "$SUBNET1" "$SUBNET2" \
   --query 'LoadBalancers[0].LoadBalancerArn' --output text 2>/dev/null || true)
 if [ -z "${ALB_ARN:-}" ]; then
   ALB_ARN=$(aws elbv2 describe-load-balancers --names "$DDN_ALB_NAME" \
@@ -89,7 +94,10 @@ echo "[INFO] ALB DNS: $ALB_DNS"
 
 # .env 파일 업데이트 (DDN_ALB_DNS 값 교체 or 추가)
 if grep -q '^DDN_ALB_DNS=' .env; then
-  sed -i "s|^DDN_ALB_DNS=.*|DDN_ALB_DNS=$ALB_DNS|" .env
+  # Windows 호환: 임시 파일 사용
+  grep -v '^DDN_ALB_DNS=' .env > .env.tmp
+  echo "DDN_ALB_DNS=$ALB_DNS" >> .env.tmp
+  mv .env.tmp .env
   echo "[INFO] Updated existing DDN_ALB_DNS in .env"
 else
   echo "" >> .env
