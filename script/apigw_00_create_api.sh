@@ -9,9 +9,35 @@ EXISTING_API_ID=$(aws apigatewayv2 get-apis \
   --query "Items[?Name=='$DDN_APIGW_NAME'].ApiId" \
   --output text)
 
+## If exists, update ALB integration and exit
 if [[ -n "$EXISTING_API_ID" ]]; then
   echo "[INFO] API Gateway '$DDN_APIGW_NAME' already exists with ID: $EXISTING_API_ID"
-  echo "[INFO] Skipping creation."
+
+  # Find ALB integration with ID
+  ALB_INTEG_ID=$(aws apigatewayv2 get-integrations \
+    --api-id $EXISTING_API_ID \
+    --query "Items[?IntegrationType=='HTTP_PROXY'].IntegrationId" \
+    --output text)
+
+  if [[ -n "$ALB_INTEG_ID" ]]; then
+    echo "[INFO] Updating ALB integration ($ALB_INTEG_ID) with new DNS: $DDN_ALB_DNS"
+    aws apigatewayv2 update-integration \
+      --api-id $EXISTING_API_ID \
+      --integration-id $ALB_INTEG_ID \
+      --integration-uri "http://$DDN_ALB_DNS" >/dev/null
+    echo "[OK] ALB integration updated."
+  else
+    echo "[WARN] No existing ALB integration found. Creating new one..."
+    aws apigatewayv2 create-integration \
+      --api-id $EXISTING_API_ID \
+      --integration-type HTTP_PROXY \
+      --integration-uri "http://$DDN_ALB_DNS" \
+      --integration-method ANY \
+      --payload-format-version 1.0
+  fi
+
+  echo "[INFO] API Gateway endpoint:"
+  echo "https://$EXISTING_API_ID.execute-api.$AWS_REGION.amazonaws.com"
   exit 0
 fi
 
