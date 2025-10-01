@@ -1,0 +1,45 @@
+{
+  "family": "ddn-triton-task",
+  "networkMode": "awsvpc",
+  "requiresCompatibilities": ["EC2"],
+  "cpu": "2048",
+  "memory": "4096",
+  "executionRoleArn": "arn:aws:iam::420509932186:role/ecsTaskExecutionRole",
+  "taskRoleArn": "arn:aws:iam::420509932186:role/ecsTaskExecutionRole",
+  "containerDefinitions": [
+    {
+      "name": "ddn-triton-container",
+      "image": "420509932186.dkr.ecr.ap-northeast-2.amazonaws.com/deepdenoising-triton:latest",
+      "essential": true,
+      "entryPoint": ["sh","-c"],
+      "command": ["tritonserver --model-repository=/opt/ml/model --http-port=50201 --grpc-port=58202 & python3 /opt/program/inference_handler.py & wait"],
+      "portMappings": [
+        { "containerPort": 50101, "protocol": "tcp" },
+        { "containerPort": 50201, "protocol": "tcp" },
+        { "containerPort": 58202, "protocol": "tcp" }
+      ],
+      "environment": [
+        { "name": "MODEL_STORE", "value": "/opt/ml/model"},
+        { "name": "APP_LOG_DIR", "value": "/app/logs"},
+        { "name": "HTTP_SERVER_PORT", "value": "50201"},
+        { "name": "GRPC_SERVER_PORT", "value": "58202"},
+        { "name": "DDN_IN_BUCKET", "value": "ddn-in-bucket"},
+        { "name": "DDN_OUT_BUCKET", "value": "ddn-out-bucket"}
+      ],
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/ddn-triton-task",
+          "awslogs-region": "ap-northeast-2",
+          "awslogs-stream-prefix": "app"
+        }
+      },
+      "linuxParameters": {
+        "initProcessEnabled": true
+      },
+      "resourceRequirements": [
+        { "type": "GPU", "value": "1" }
+      ]
+    }
+  ]
+}
