@@ -4,7 +4,7 @@
   "requiresCompatibilities": ["EC2"],
   "cpu": "2048",
   "memory": "4096",
-  "executionRoleArn": "${DDN_ECS_TASK_ROLE_ARN}",
+  "executionRoleArn": "${DDN_ECS_EXECUTION_ROLE_ARN}",
   "taskRoleArn": "${DDN_ECS_TASK_ROLE_ARN}",
   "containerDefinitions": [
     {
