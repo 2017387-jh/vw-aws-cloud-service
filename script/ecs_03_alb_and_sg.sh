@@ -32,7 +32,7 @@ echo "[INFO] ECS SG: $ECS_SG_ID"
 
 # Flask 포트만 ALB SG에서 허용
 aws ec2 authorize-security-group-ingress --group-id "$ECS_SG_ID" \
-  --ip-permissions "IpProtocol=tcp,FromPort=$DDN_FLASK_PORT,ToPort=$DDN_FLASK_PORT,UserIdGroupPairs=[{GroupId=$ALB_SG_ID}]" >/dev/null 2>&1 || true
+  --ip-permissions "IpProtocol=tcp,FromPort=$DDN_FLASK_HTTP_PORT,ToPort=$DDN_FLASK_HTTP_PORT,UserIdGroupPairs=[{GroupId=$ALB_SG_ID}]" >/dev/null 2>&1 || true
 
 # Triton 포트는 외부 차단, 같은 ECS SG 내부 통신만 허용(Flask→Triton)
 for P in "$DDN_TRITON_HTTP_PORT" "$DDN_TRITON_GRPC_PORT"; do
@@ -57,7 +57,7 @@ echo "[INFO] ALB ARN: $ALB_ARN"
 # Flask Target Group (Health Check 명시)
 TG_FLASK_ARN=$(aws elbv2 create-target-group \
   --name "$DDN_TG_FLASK" \
-  --protocol HTTP --port "$DDN_FLASK_PORT" \
+  --protocol HTTP --port "$DDN_FLASK_HTTP_PORT" \
   --vpc-id "$DDN_VPC_ID" \
   --target-type ip \
   --health-check-protocol HTTP \

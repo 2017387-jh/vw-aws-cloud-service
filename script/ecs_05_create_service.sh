@@ -34,7 +34,7 @@ aws ecs create-service \
   --desired-count "$DDN_ECS_DESIRED_COUNT" \
   --launch-type EC2 \
   --network-configuration "awsvpcConfiguration={subnets=[$SUBNETS_JSON],securityGroups=[\"$ECS_SG_ID\"],assignPublicIp=DISABLED}" \
-  --load-balancers "targetGroupArn=$TG_FLASK_ARN,containerName=$DDN_ECS_CONTAINER,containerPort=$DDN_FLASK_PORT" \
+  --load-balancers "targetGroupArn=$TG_FLASK_ARN,containerName=$DDN_ECS_CONTAINER,containerPort=$DDN_FLASK_HTTP_PORT" \
   --health-check-grace-period-seconds 60 \
   --query '{Service:service.serviceName,Status:service.status,LoadBalancers:service.loadBalancers}' \
   --output json \

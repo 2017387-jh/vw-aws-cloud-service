@@ -14,15 +14,16 @@
       "entryPoint": ["sh","-c"],
       "command": ["tritonserver --model-repository=/opt/ml/model --http-port=${DDN_TRITON_HTTP_PORT} --grpc-port=${DDN_TRITON_GRPC_PORT} & python3 /opt/program/inference_handler.py & wait"],
       "portMappings": [
-        { "containerPort": ${DDN_FLASK_PORT}, "protocol": "tcp" },
+        { "containerPort": ${DDN_FLASK_HTTP_PORT}, "protocol": "tcp" },
+        { "containerPort": ${DDN_FLASK_GRPC_PORT}, "protocol": "tcp" },
         { "containerPort": ${DDN_TRITON_HTTP_PORT}, "protocol": "tcp" },
         { "containerPort": ${DDN_TRITON_GRPC_PORT}, "protocol": "tcp" }
       ],
       "environment": [
         { "name": "MODEL_STORE", "value": "/opt/ml/model"},
         { "name": "APP_LOG_DIR", "value": "/app/logs"},
-        { "name": "HTTP_SERVER_PORT", "value": "${DDN_TRITON_HTTP_PORT}"},
-        { "name": "GRPC_SERVER_PORT", "value": "${DDN_TRITON_GRPC_PORT}"},
+        { "name": "HTTP_SERVER_PORT", "value": "${DDN_FLASK_HTTP_PORT}"},
+        { "name": "GRPC_SERVER_PORT", "value": "${DDN_FLASK_GRPC_PORT}"},
         { "name": "DDN_IN_BUCKET", "value": "${DDN_IN_BUCKET}"},
         { "name": "DDN_OUT_BUCKET", "value": "${DDN_OUT_BUCKET}"}
       ],
