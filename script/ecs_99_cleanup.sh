@@ -17,32 +17,54 @@ aws ecs delete-service \
   --cluster "$DDN_ECS_CLUSTER" \
   --service "$DDN_ECS_SERVICE" \
   --force >/dev/null 2>&1
+set -e
 
-# 서비스 삭제 완료 대기
-echo "[INFO] Waiting for ECS service to become INACTIVE..."
+# 서비스 삭제 완료 대기 (최대 5분)
+echo "[INFO] Waiting for ECS service to disappear or become INACTIVE..."
 for i in {1..30}; do
-  SERVICE_DESC=$(aws ecs describe-services \
-    --cluster "$DDN_ECS_CLUSTER" \
-    --services "$DDN_ECS_SERVICE" \
-    --query 'services[0]' --output text 2>/dev/null || echo "None")
+  # 클러스터 존재 여부 확인
+  CLUSTER_STATUS=$(aws ecs describe-clusters \
+    --clusters "$DDN_ECS_CLUSTER" \
+    --query 'clusters[0].status' --output text 2>/dev/null || echo "NOT_FOUND")
 
-  if [ "$SERVICE_DESC" = "None" ] || [ "$SERVICE_DESC" = "NoneType" ] || [ "$SERVICE_DESC" = "None.None" ]; then
-    echo "[OK] Service not found (probably cluster already deleted)."
+  if [ "$CLUSTER_STATUS" = "INACTIVE" ] || [ "$CLUSTER_STATUS" = "NOT_FOUND" ] || [ "$CLUSTER_STATUS" = "None" ]; then
+    echo "[OK] Cluster not found or already deleted. Skipping service wait."
     break
   fi
 
-  STATUS=$(aws ecs describe-services \
+  # 서비스 상세 조회
+  DESC_JSON=$(aws ecs describe-services \
     --cluster "$DDN_ECS_CLUSTER" \
-    --services "$DDN_ECS_SERVICE" \
-    --query 'services[0].status' \
-    --output text 2>/dev/null || echo "INACTIVE")
+    --services "$DDN_ECS_SERVICE" 2>/dev/null || true)
 
-  if [ "$STATUS" = "INACTIVE" ] || [ "$STATUS" = "None" ]; then
-    echo "[OK] Service deleted."
+  if [ -z "$DESC_JSON" ]; then
+    echo "[OK] Service not found (describe-services failed)."
     break
   fi
 
-  echo "[INFO] Service still in $STATUS state... waiting 10s"
+  STATUS=$(echo "$DESC_JSON" | jq -r '.services[0].status // "None"' 2>/dev/null || echo "None")
+  RUNNING=$(echo "$DESC_JSON" | jq -r '.services[0].runningCount // 0' 2>/dev/null || echo 0)
+  PENDING=$(echo "$DESC_JSON" | jq -r '.services[0].pendingCount // 0' 2>/dev/null || echo 0)
+  FAILURES_LEN=$(echo "$DESC_JSON" | jq -r '.failures | length' 2>/dev/null || echo 0)
+
+  if [ "$FAILURES_LEN" != "0" ] || [ "$STATUS" = "None" ] || [ "$STATUS" = "INACTIVE" ]; then
+    echo "[OK] Service is gone or INACTIVE."
+    break
+  fi
+
+  # Task가 남아 있으면 강제 종료
+  if [ "$RUNNING" -gt 0 ] || [ "$PENDING" -gt 0 ]; then
+    TASK_ARNS=$(aws ecs list-tasks --cluster "$DDN_ECS_CLUSTER" --service-name "$DDN_ECS_SERVICE" \
+      --query 'taskArns[]' --output text 2>/dev/null || echo "")
+    if [ -n "$TASK_ARNS" ]; then
+      echo "[INFO] Stopping remaining tasks: $TASK_ARNS"
+      for T in $TASK_ARNS; do
+        aws ecs stop-task --cluster "$DDN_ECS_CLUSTER" --task "$T" >/dev/null 2>&1 || true
+      done
+    fi
+  fi
+
+  echo "[INFO] Service status=$STATUS running=$RUNNING pending=$PENDING ... waiting 10s"
   sleep 10
 done
 
@@ -50,7 +72,6 @@ done
 # 2. Auto Scaling 그룹 삭제
 # ---------------------------------------------------------
 echo "[STEP 2] Delete Auto Scaling Group..."
-
 ASG_EXIST=$(aws autoscaling describe-auto-scaling-groups \
   --auto-scaling-group-names "$DDN_ASG_NAME" \
   --query 'AutoScalingGroups[0].AutoScalingGroupName' \
@@ -90,7 +111,6 @@ fi
 # 4. ECS 클러스터 삭제 (capacity provider 해제 먼저)
 # ---------------------------------------------------------
 echo "[STEP 4] Delete ECS Cluster..."
-
 aws ecs put-cluster-capacity-providers \
   --cluster "$DDN_ECS_CLUSTER" \
   --capacity-providers [] \
@@ -118,7 +138,6 @@ ECS_SG_ID=$(aws ec2 describe-security-groups \
   --query 'SecurityGroups[0].GroupId' --output text 2>/dev/null || echo "None")
 
 if [ "$ECS_SG_ID" != "None" ]; then
-  # ENI 의존성 제거
   ENI_IDS=$(aws ec2 describe-network-interfaces \
     --filters "Name=group-id,Values=$ECS_SG_ID" \
     --query 'NetworkInterfaces[].NetworkInterfaceId' --output text)
