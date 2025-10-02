@@ -3,7 +3,7 @@
   "networkMode": "awsvpc",
   "requiresCompatibilities": ["EC2"],
   "cpu": "2048",
-  "memory": "4096",
+  "memory": "8192",
   "executionRoleArn": "${DDN_ECS_EXECUTION_ROLE_ARN}",
   "taskRoleArn": "${DDN_ECS_TASK_ROLE_ARN}",
   "containerDefinitions": [
