@@ -40,14 +40,26 @@ set -e
 # 2. Auto Scaling 그룹 삭제
 # ---------------------------------------------------------
 echo "[STEP 2] Delete Auto Scaling Group..."
-aws autoscaling update-auto-scaling-group \
-  --auto-scaling-group-name "$DDN_ASG_NAME" \
-  --min-size 0 --desired-capacity 0
 
-sleep 10
-aws autoscaling delete-auto-scaling-group \
-  --auto-scaling-group-name "$DDN_ASG_NAME" \
-  --force-delete >/dev/null 2>&1 || true
+ASG_EXIST=$(aws autoscaling describe-auto-scaling-groups \
+  --auto-scaling-group-names "$DDN_ASG_NAME" \
+  --query 'AutoScalingGroups[0].AutoScalingGroupName' \
+  --output text 2>/dev/null || echo "None")
+
+if [ "$ASG_EXIST" != "None" ] && [ -n "$ASG_EXIST" ]; then
+  echo "[INFO] ASG found: $ASG_EXIST"
+  aws autoscaling update-auto-scaling-group \
+    --auto-scaling-group-name "$DDN_ASG_NAME" \
+    --min-size 0 --desired-capacity 0
+
+  sleep 10
+  aws autoscaling delete-auto-scaling-group \
+    --auto-scaling-group-name "$DDN_ASG_NAME" \
+    --force-delete >/dev/null 2>&1 || true
+  echo "[OK] Auto Scaling Group deleted."
+else
+  echo "[INFO] Auto Scaling Group not found. Skipping."
+fi
 
 # ---------------------------------------------------------
 # 3. Launch Template 삭제
