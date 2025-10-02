@@ -21,6 +21,16 @@ aws ecs delete-service \
 # 서비스 삭제 완료 대기
 echo "[INFO] Waiting for ECS service to become INACTIVE..."
 for i in {1..30}; do
+  SERVICE_DESC=$(aws ecs describe-services \
+    --cluster "$DDN_ECS_CLUSTER" \
+    --services "$DDN_ECS_SERVICE" \
+    --query 'services[0]' --output text 2>/dev/null || echo "None")
+
+  if [ "$SERVICE_DESC" = "None" ] || [ "$SERVICE_DESC" = "NoneType" ] || [ "$SERVICE_DESC" = "None.None" ]; then
+    echo "[OK] Service not found (probably cluster already deleted)."
+    break
+  fi
+
   STATUS=$(aws ecs describe-services \
     --cluster "$DDN_ECS_CLUSTER" \
     --services "$DDN_ECS_SERVICE" \
@@ -31,10 +41,10 @@ for i in {1..30}; do
     echo "[OK] Service deleted."
     break
   fi
+
   echo "[INFO] Service still in $STATUS state... waiting 10s"
   sleep 10
 done
-set -e
 
 # ---------------------------------------------------------
 # 2. Auto Scaling 그룹 삭제
