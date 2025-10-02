@@ -19,9 +19,9 @@ aws ecs delete-service \
   --force >/dev/null 2>&1
 set -e
 
-# 서비스 삭제 완료 대기 (최대 5분)
-echo "[INFO] Waiting for ECS service to disappear or become INACTIVE..."
-for i in {1..30}; do
+# 서비스 삭제 완료 대기 (최대 3회)
+echo "[INFO] Briefly waiting for ECS service to disappear or become INACTIVE..."
+for i in {1..3}; do
   # 클러스터 존재 여부 확인
   CLUSTER_STATUS=$(aws ecs describe-clusters \
     --clusters "$DDN_ECS_CLUSTER" \
