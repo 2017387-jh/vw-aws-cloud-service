@@ -12,7 +12,7 @@
       "image": "420509932186.dkr.ecr.ap-northeast-2.amazonaws.com/deepdenoising-triton:latest",
       "essential": true,
       "entryPoint": ["sh","-c"],
-      "command": ["tritonserver --model-repository=/opt/ml/model --http-port=50201 --grpc-port=58202 & python3 /opt/program/inference_handler.py & wait"],
+      "command": ["tritonserver --model-repository=/opt/ml/model --http-port=50201 --grpc-port=50202 & python3 /opt/program/inference_handler.py & wait"],
       "portMappings": [
         { "containerPort": 50101, "protocol": "tcp" },
         { "containerPort": 50102, "protocol": "tcp" },
