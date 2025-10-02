@@ -38,16 +38,6 @@ else
   echo "[INFO] Launch Template not found: $LT_NAME"
 fi
 
-# ALB 삭제
-ALB_ARN=$(aws elbv2 describe-load-balancers --names "$DDN_ALB_NAME" \
-  --query 'LoadBalancers[0].LoadBalancerArn' --output text 2>/dev/null)
-if [ -n "$ALB_ARN" ]; then
-  LISTENERS=$(aws elbv2 describe-listeners --load-balancer-arn "$ALB_ARN" \
-    --query 'Listeners[].ListenerArn' --output text)
-  for L in $LISTENERS; do aws elbv2 delete-listener --listener-arn "$L"; done
-  aws elbv2 delete-load-balancer --load-balancer-arn "$ALB_ARN"
-fi
-
 # Target Groups 삭제
 for TG in "$DDN_TG_FLASK"; do
   TG_ARN=$(aws elbv2 describe-target-groups --names "$TG" \

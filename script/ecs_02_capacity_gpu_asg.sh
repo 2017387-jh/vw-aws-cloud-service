@@ -46,7 +46,17 @@ LT_ID=$(aws ec2 create-launch-template \
     \"InstanceType\": \"$DDN_ECS_INSTANCE_TYPE\",
     \"IamInstanceProfile\": {\"Name\": \"ecsInstanceRole\"},
     \"SecurityGroupIds\": [\"$ECS_SG_ID\"],
-    \"UserData\": \"$(echo -n "$USERDATA" | base64 -w0)\"
+    \"UserData\": \"$(echo -n "$USERDATA" | base64 -w0)\",
+    \"BlockDeviceMappings\": [
+      {
+        \"DeviceName\": \"/dev/xvda\",
+        \"Ebs\": {
+          \"VolumeSize\": $DDN_ECS_ROOT_VOLUME,
+          \"VolumeType\": \"gp3\",
+          \"DeleteOnTermination\": true
+        }
+      }
+    ]
   }" \
   --query 'LaunchTemplate.LaunchTemplateId' --output text 2>/dev/null || true)
 
