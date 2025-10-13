@@ -132,24 +132,24 @@ aws logs delete-log-group --log-group-name "/ecs/$DDN_ECS_TASK_FAMILY" >/dev/nul
 # ---------------------------------------------------------
 # 6. ECS 전용 보안 그룹만 삭제 (ALB SG는 제외)
 # ---------------------------------------------------------
-echo "[STEP 6] Delete ECS Security Group..."
-ECS_SG_ID=$(aws ec2 describe-security-groups \
-  --filters "Name=vpc-id,Values=$DDN_VPC_ID" "Name=group-name,Values=$DDN_ECS_SG_NAME" \
-  --query 'SecurityGroups[0].GroupId' --output text 2>/dev/null || echo "None")
+# echo "[STEP 6] Delete ECS Security Group..."
+# ECS_SG_ID=$(aws ec2 describe-security-groups \
+#   --filters "Name=vpc-id,Values=$DDN_VPC_ID" "Name=group-name,Values=$DDN_ECS_SG_NAME" \
+#   --query 'SecurityGroups[0].GroupId' --output text 2>/dev/null || echo "None")
 
-if [ "$ECS_SG_ID" != "None" ]; then
-  ENI_IDS=$(aws ec2 describe-network-interfaces \
-    --filters "Name=group-id,Values=$ECS_SG_ID" \
-    --query 'NetworkInterfaces[].NetworkInterfaceId' --output text)
-  for ENI in $ENI_IDS; do
-    aws ec2 delete-network-interface --network-interface-id "$ENI" >/dev/null 2>&1 || true
-  done
+# if [ "$ECS_SG_ID" != "None" ]; then
+#   ENI_IDS=$(aws ec2 describe-network-interfaces \
+#     --filters "Name=group-id,Values=$ECS_SG_ID" \
+#     --query 'NetworkInterfaces[].NetworkInterfaceId' --output text)
+#   for ENI in $ENI_IDS; do
+#     aws ec2 delete-network-interface --network-interface-id "$ENI" >/dev/null 2>&1 || true
+#   done
 
-  aws ec2 delete-security-group --group-id "$ECS_SG_ID"
-  echo "[OK] ECS Security Group deleted: $DDN_ECS_SG_NAME"
-else
-  echo "[INFO] ECS Security Group not found or already deleted."
-fi
+#   aws ec2 delete-security-group --group-id "$ECS_SG_ID"
+#   echo "[OK] ECS Security Group deleted: $DDN_ECS_SG_NAME"
+# else
+#   echo "[INFO] ECS Security Group not found or already deleted."
+# fi
 
 # ---------------------------------------------------------
 # 7. EC2 인스턴스 종료 대기

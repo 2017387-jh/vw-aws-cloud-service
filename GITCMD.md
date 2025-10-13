@@ -60,6 +60,7 @@ git fetch
 * 원격 변경 가져오기
 ```
 git pull origin <브랜치명>
+git reset --hard origin/main
 ```
 
 * 원격에 푸시
