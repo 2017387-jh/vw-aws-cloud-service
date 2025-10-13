@@ -172,7 +172,7 @@ else
 
       # $default 스테이지 존재/AutoDeploy 보정
       STAGE_INFO=$(aws apigatewayv2 get-stages --api-id "$EXISTING_API_ID" \
-        --query "Items[?StageName=='$default'].AutoDeploy" --output text 2>/dev/null || true)
+        --query "Items[?StageName=='\$default'].AutoDeploy" --output text 2>/dev/null || true)
 
       if [[ -z "$STAGE_INFO" || "$STAGE_INFO" == "None" ]]; then
         echo "[INFO] Creating stage \$default with AutoDeploy=true"
