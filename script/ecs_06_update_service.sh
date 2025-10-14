@@ -16,6 +16,7 @@ aws ecs update-service \
   --service "$DDN_ECS_SERVICE" \
   --task-definition "$DDN_ECS_TASK_FAMILY:$REV" \
   --force-new-deployment \
+  --network-configuration "awsvpcConfiguration={subnets=[$SUBNETS_JSON],securityGroups=[\"$ECS_SG_ID\"],assignPublicIp=ENABLED}" \
   --desired-count "$DDN_ECS_DESIRED_COUNT" \
   >/dev/null
 

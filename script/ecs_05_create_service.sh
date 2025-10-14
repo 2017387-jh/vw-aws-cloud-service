@@ -33,7 +33,7 @@ aws ecs create-service \
   --task-definition "$REV" \
   --desired-count "$DDN_ECS_DESIRED_COUNT" \
   --launch-type EC2 \
-  --network-configuration "awsvpcConfiguration={subnets=[$SUBNETS_JSON],securityGroups=[\"$ECS_SG_ID\"],assignPublicIp=DISABLED}" \
+  --network-configuration "awsvpcConfiguration={subnets=[$SUBNETS_JSON],securityGroups=[\"$ECS_SG_ID\"],assignPublicIp=ENABLED}"
   --load-balancers "targetGroupArn=$TG_FLASK_ARN,containerName=$DDN_ECS_CONTAINER,containerPort=$DDN_FLASK_HTTP_PORT" \
   --health-check-grace-period-seconds 60 \
   --query '{Service:service.serviceName,Status:service.status,LoadBalancers:service.loadBalancers}' \
