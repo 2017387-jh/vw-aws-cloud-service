@@ -28,7 +28,7 @@ if [ -n "$ALB_ARN" ] && [ "$ALB_ARN" != "None" ]; then
 
   # 3. ALB 삭제 완료 대기 (공식 waiter)
   echo "[INFO] Waiting for ALB deletion to complete..."
-  aws elbv2 wait load-balancer-deleted --load-balancer-arns "$ALB_ARN"
+  aws elbv2 wait load-balancers-deleted --load-balancer-arns "$ALB_ARN"
   echo "[OK] ALB deletion confirmed."
 
   # 4. Target Group 삭제 (해당 ALB에 연결돼 있던 것만)
