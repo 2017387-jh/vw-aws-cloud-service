@@ -2,6 +2,8 @@
 set -euo pipefail
 source .env
 
+aws configure set region "$AWS_REGION"
+
 echo "[INFO] Installing required packages (gettext, jq)..."
 sudo yum install -y -q gettext jq
 
@@ -110,7 +112,71 @@ aws iam put-role-policy \
     ]
   }"
 
+
 echo "[OK] IAM prerequisites ready:"
 echo " - Instance Role/Profile: $DDN_ECS_ROLE_NAME / $DDN_ECS_PROFILE_NAME"
 echo " - Task Execution Role: ecsTaskExecutionRole"
 echo " - Task Role (S3 Access): ddnTaskRole"
+
+echo "[INFO] Creating S3 Gateway VPC Endpoint for VPC: $DDN_VPC_ID"
+
+# 1) DDN_SUBNET_IDS에 연결된 라우트 테이블 ID들을 수집(중복 제거)
+ROUTE_TABLE_IDS=()
+IFS=',' read -ra SUBNETS <<< "$DDN_SUBNET_IDS"
+for sn in "${SUBNETS[@]}"; do
+  rtb=$(aws ec2 describe-route-tables \
+    --filters "Name=association.subnet-id,Values=${sn}" \
+    --query "RouteTables[0].RouteTableId" --output text)
+  [[ -n "$rtb" && "$rtb" != "None" ]] && ROUTE_TABLE_IDS+=("$rtb")
+done
+# 서브넷이 메인 RTB를 상속 중인 경우 대비: VPC 메인 RTB 추가
+MAIN_RTB=$(aws ec2 describe-route-tables \
+  --filters "Name=vpc-id,Values=$DDN_VPC_ID" "Name=association.main,Values=true" \
+  --query "RouteTables[0].RouteTableId" --output text 2>/dev/null || true)
+[[ -n "$MAIN_RTB" && "$MAIN_RTB" != "None" ]] && ROUTE_TABLE_IDS+=("$MAIN_RTB")
+
+# 유니크 처리
+mapfile -t ROUTE_TABLE_IDS < <(printf "%s\n" "${ROUTE_TABLE_IDS[@]}" | sort -u)
+if [[ ${#ROUTE_TABLE_IDS[@]} -eq 0 ]]; then
+  echo "[ERROR] No route tables found for subnets: $DDN_SUBNET_IDS"
+  exit 1
+fi
+echo "[INFO] RouteTables: ${ROUTE_TABLE_IDS[*]}"
+
+# 2) 엔드포인트 존재 여부 확인
+EXISTING=$(aws ec2 describe-vpc-endpoints \
+  --filters Name=vpc-id,Values="$DDN_VPC_ID" Name=service-name,Values="com.amazonaws.${AWS_REGION}.s3" \
+  --query "VpcEndpoints[0].VpcEndpointId" --output text 2>/dev/null || true)
+
+if [[ -n "$EXISTING" && "$EXISTING" != "None" ]]; then
+  echo "[INFO] S3 Gateway Endpoint already exists: $EXISTING"
+  # 필요 시 라우트 테이블 갱신
+  aws ec2 modify-vpc-endpoint --vpc-endpoint-id "$EXISTING" \
+    --add-route-table-ids ${ROUTE_TABLE_IDS[@]} >/dev/null || true
+else
+  echo "[INFO] Creating S3 Gateway Endpoint..."
+  # 최초엔 Full Access로 생성 → 동작 확인 후 버킷 제한 정책으로 축소 권장
+  EP_ID=$(aws ec2 create-vpc-endpoint \
+    --vpc-id "$DDN_VPC_ID" \
+    --service-name "com.amazonaws.${AWS_REGION}.s3" \
+    --vpc-endpoint-type "Gateway" \
+    --route-table-ids ${ROUTE_TABLE_IDS[@]} \
+    --policy-document "{
+      \"Version\":\"2012-10-17\",
+      \"Statement\":[{ \"Effect\":\"Allow\",\"Principal\":\"*\",\"Action\":\"s3:*\",\"Resource\":\"*\"}]
+    }" \
+    --query "VpcEndpoint.VpcEndpointId" --output text)
+  echo "[OK] Created: $EP_ID"
+fi
+
+# 3) 상태 체크
+aws ec2 describe-vpc-endpoints \
+  --filters Name=vpc-id,Values="$DDN_VPC_ID" Name=service-name,Values="com.amazonaws.${AWS_REGION}.s3" \
+  --query "VpcEndpoints[0].[VpcEndpointId,State,RouteTableIds]" --output table
+
+echo "[OK] All prerequisites completed."
+echo " - ECS Instance Role/Profile: $DDN_ECS_ROLE_NAME / $DDN_ECS_PROFILE_NAME"
+echo " - ECS Task Execution Role: $DDN_ECS_EXECUTION_ROLE_NAME"
+echo " - ECS Task Role (S3 Access): $DDN_ECS_TASK_ROLE_NAME"
+echo " - S3 Gateway VPC Endpoint for VPC $DDN_VPC_ID"
+echo "   (Ensure your S3 buckets allow access from this VPC Endpoint for security.)
