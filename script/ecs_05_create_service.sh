@@ -35,6 +35,7 @@ aws ecs create-service \
   --launch-type EC2 \
   --load-balancers "targetGroupArn=$TG_FLASK_ARN,containerName=$DDN_ECS_CONTAINER,containerPort=$DDN_FLASK_HTTP_PORT" \
   --health-check-grace-period-seconds 60 \
+  --network-configuration "awsvpcConfiguration={subnets=[$SUBNETS_JSON],securityGroups=[\"$ECS_SG_ID\"],assignPublicIp=DISABLED}" \
   --query '{Service:service.serviceName,Status:service.status,LoadBalancers:service.loadBalancers}' \
   --output json \
   || { echo "[ERROR] Failed to create ECS Service"; exit 1; }

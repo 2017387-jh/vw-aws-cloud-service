@@ -179,4 +179,4 @@ echo " - ECS Instance Role/Profile: $DDN_ECS_ROLE_NAME / $DDN_ECS_PROFILE_NAME"
 echo " - ECS Task Execution Role: $DDN_ECS_EXECUTION_ROLE_NAME"
 echo " - ECS Task Role (S3 Access): $DDN_ECS_TASK_ROLE_NAME"
 echo " - S3 Gateway VPC Endpoint for VPC $DDN_VPC_ID"
-echo "   (Ensure your S3 buckets allow access from this VPC Endpoint for security.)
+echo "   (Ensure your S3 buckets allow access from this VPC Endpoint for security.)"
