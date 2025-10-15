@@ -2,7 +2,7 @@
 set -euo pipefail
 source .env
 
-# === add: .env 키-값 upsert ===
+# ===== helpers =====
 upsert_env () {
   local KEY="$1"
   local VALUE="$2"
@@ -14,107 +14,167 @@ upsert_env () {
   echo "[INFO] .env updated: ${KEY}=${VALUE}"
 }
 
+# .env 경로 변수
+PRESIGN_PATH="${DDN_APIGW_PRESIGN_PATH}"
+PING_PATH="${DDN_APIGW_PING_PATH}"
+INVOC_PATH="${DDN_APIGW_INVOCATIONS_PATH}"
+
+ALB_BASE="http://${DDN_ALB_DNS}"
+ALB_PING_URI="${ALB_BASE}${PING_PATH}"
+ALB_INVOC_URI="${ALB_BASE}${INVOC_PATH}"
+
 echo "[INFO] Checking if API Gateway already exists: $DDN_APIGW_NAME"
 
-# 0. Check existing API
 EXISTING_API_ID=$(aws apigatewayv2 get-apis \
   --query "Items[?Name=='$DDN_APIGW_NAME'].ApiId" \
   --output text)
 
-## If exists, update ALB integration and exit
-if [[ -n "$EXISTING_API_ID" ]]; then
-  echo "[INFO] API Gateway '$DDN_APIGW_NAME' already exists with ID: $EXISTING_API_ID"
+if [[ -n "${EXISTING_API_ID}" ]]; then
+  echo "[INFO] API exists: ${EXISTING_API_ID}"
 
-  # Find ALB integration with ID
-  ALB_INTEG_ID=$(aws apigatewayv2 get-integrations \
-    --api-id "$EXISTING_API_ID" \
-    --query "Items[?IntegrationType=='HTTP_PROXY'].IntegrationId" \
-    --output text)
-
-  if [[ -n "$ALB_INTEG_ID" ]]; then
-    echo "[INFO] Updating ALB integration ($ALB_INTEG_ID) with new DNS: $DDN_ALB_DNS"
+  # --- 통합 upsert (/ping) ---
+  PING_INTEG_ID=$(aws apigatewayv2 get-integrations --api-id "${EXISTING_API_ID}" \
+    --query "Items[?IntegrationType=='HTTP_PROXY' && contains(IntegrationUri, '${PING_PATH}')].IntegrationId" \
+    --output text | tr -d '\n')
+  if [[ -n "${PING_INTEG_ID}" && "${PING_INTEG_ID}" != "None" ]]; then
+    echo "[INFO] Update /ping integration: ${PING_INTEG_ID} -> ${ALB_PING_URI}"
     aws apigatewayv2 update-integration \
-      --api-id "$EXISTING_API_ID" \
-      --integration-id "$ALB_INTEG_ID" \
-      --integration-uri "http://$DDN_ALB_DNS" >/dev/null
-    echo "[OK] ALB integration updated."
+      --api-id "${EXISTING_API_ID}" \
+      --integration-id "${PING_INTEG_ID}" \
+      --integration-uri "${ALB_PING_URI}" >/dev/null
   else
-    echo "[WARN] No existing ALB integration found. Creating new one..."
-    aws apigatewayv2 create-integration \
-      --api-id "$EXISTING_API_ID" \
+    echo "[INFO] Create /ping integration -> ${ALB_PING_URI}"
+    PING_INTEG_ID=$(aws apigatewayv2 create-integration \
+      --api-id "${EXISTING_API_ID}" \
       --integration-type HTTP_PROXY \
-      --integration-uri "http://$DDN_ALB_DNS" \
       --integration-method ANY \
-      --payload-format-version 1.0 >/dev/null
+      --integration-uri "${ALB_PING_URI}" \
+      --payload-format-version 1.0 \
+      --query 'IntegrationId' --output text)
+  fi
+
+  # --- 통합 upsert (/invocations) ---
+  INVOC_INTEG_ID=$(aws apigatewayv2 get-integrations --api-id "${EXISTING_API_ID}" \
+    --query "Items[?IntegrationType=='HTTP_PROXY' && contains(IntegrationUri, '${INVOC_PATH}')].IntegrationId" \
+    --output text | tr -d '\n')
+  if [[ -n "${INVOC_INTEG_ID}" && "${INVOC_INTEG_ID}" != "None" ]]; then
+    echo "[INFO] Update /invocations integration: ${INVOC_INTEG_ID} -> ${ALB_INVOC_URI}"
+    aws apigatewayv2 update-integration \
+      --api-id "${EXISTING_API_ID}" \
+      --integration-id "${INVOC_INTEG_ID}" \
+      --integration-uri "${ALB_INVOC_URI}" >/dev/null
+  else
+    echo "[INFO] Create /invocations integration -> ${ALB_INVOC_URI}"
+    INVOC_INTEG_ID=$(aws apigatewayv2 create-integration \
+      --api-id "${EXISTING_API_ID}" \
+      --integration-type HTTP_PROXY \
+      --integration-method ANY \
+      --integration-uri "${ALB_INVOC_URI}" \
+      --payload-format-version 1.0 \
+      --query 'IntegrationId' --output text)
+  fi
+
+  # --- 라우트 upsert (GET {PING_PATH}) ---
+  PING_ROUTE_ID=$(aws apigatewayv2 get-routes --api-id "${EXISTING_API_ID}" \
+    --query "Items[?RouteKey=='GET ${PING_PATH}'].RouteId" --output text | tr -d '\n')
+  if [[ -n "${PING_ROUTE_ID}" && "${PING_ROUTE_ID}" != "None" ]]; then
+    aws apigatewayv2 update-route \
+      --api-id "${EXISTING_API_ID}" \
+      --route-id "${PING_ROUTE_ID}" \
+      --target "integrations/${PING_INTEG_ID}" >/dev/null
+  else
+    aws apigatewayv2 create-route \
+      --api-id "${EXISTING_API_ID}" \
+      --route-key "GET ${PING_PATH}" \
+      --target "integrations/${PING_INTEG_ID}" >/dev/null
+  fi
+
+  # --- 라우트 upsert (POST {INVOC_PATH}) ---
+  INVOC_ROUTE_ID=$(aws apigatewayv2 get-routes --api-id "${EXISTING_API_ID}" \
+    --query "Items[?RouteKey=='POST ${INVOC_PATH}'].RouteId" --output text | tr -d '\n')
+  if [[ -n "${INVOC_ROUTE_ID}" && "${INVOC_ROUTE_ID}" != "None" ]]; then
+    aws apigatewayv2 update-route \
+      --api-id "${EXISTING_API_ID}" \
+      --route-id "${INVOC_ROUTE_ID}" \
+      --target "integrations/${INVOC_INTEG_ID}" >/dev/null
+  else
+    aws apigatewayv2 create-route \
+      --api-id "${EXISTING_API_ID}" \
+      --route-key "POST ${INVOC_PATH}" \
+      --target "integrations/${INVOC_INTEG_ID}" >/dev/null
   fi
 
   ENDPOINT="https://${EXISTING_API_ID}.execute-api.${AWS_REGION}.amazonaws.com"
-  echo "[INFO] API Gateway endpoint:"
-  echo "$ENDPOINT"
-
-  # === add: .env 갱신 ===
-  upsert_env "DDN_APIGW_ENDPOINT" "$ENDPOINT"
+  echo "[INFO] API Gateway endpoint: ${ENDPOINT}"
+  upsert_env "DDN_APIGW_ENDPOINT" "${ENDPOINT}"
   exit 0
 fi
 
-echo "[INFO] Creating API Gateway: $DDN_APIGW_NAME"
+echo "[INFO] Creating API Gateway: ${DDN_APIGW_NAME}"
 
-# 1. Create API
+# --- API 생성 ---
 API_ID=$(aws apigatewayv2 create-api \
-  --name "$DDN_APIGW_NAME" \
+  --name "${DDN_APIGW_NAME}" \
   --protocol-type HTTP \
   --query 'ApiId' \
   --output text)
+echo "[INFO] API created: ${API_ID}"
 
-echo "[INFO] API Gateway created with ID: $API_ID"
-
-# 2. Lambda integration (presign)
+# --- Lambda 통합 (presign) ---
 LAMBDA_INTEG_ID=$(aws apigatewayv2 create-integration \
-  --api-id "$API_ID" \
+  --api-id "${API_ID}" \
   --integration-type AWS_PROXY \
   --integration-uri "arn:aws:lambda:${AWS_REGION}:${ACCOUNT_ID}:function:${DDN_LAMBDA_FUNC_NAME}" \
   --payload-format-version 2.0 \
   --query 'IntegrationId' --output text)
 
-# 3. ALB integration (Flask ECS)
-ALB_URL="http://$DDN_ALB_DNS"
-ALB_INTEG_ID=$(aws apigatewayv2 create-integration \
-  --api-id "$API_ID" \
+# --- ALB 통합 (경로별) ---
+PING_INTEG_ID=$(aws apigatewayv2 create-integration \
+  --api-id "${API_ID}" \
   --integration-type HTTP_PROXY \
-  --integration-uri "$ALB_URL" \
   --integration-method ANY \
+  --integration-uri "${ALB_PING_URI}" \
   --payload-format-version 1.0 \
   --query 'IntegrationId' --output text)
 
-echo "[INFO] ALB URL: $ALB_URL"
-echo "[INFO] ALB Integration ID: $ALB_INTEG_ID"
+INVOC_INTEG_ID=$(aws apigatewayv2 create-integration \
+  --api-id "${API_ID}" \
+  --integration-type HTTP_PROXY \
+  --integration-method ANY \
+  --integration-uri "${ALB_INVOC_URI}" \
+  --payload-format-version 1.0 \
+  --query 'IntegrationId' --output text)
 
-# 4. Routes
-aws apigatewayv2 create-route --api-id "$API_ID" --route-key "GET /presign"  --target integrations/"$LAMBDA_INTEG_ID"
-aws apigatewayv2 create-route --api-id "$API_ID" --route-key "POST /presign" --target integrations/"$LAMBDA_INTEG_ID"
-aws apigatewayv2 create-route --api-id "$API_ID" --route-key "GET /ping"    --target integrations/"$ALB_INTEG_ID"
-aws apigatewayv2 create-route --api-id "$API_ID" --route-key "POST /invocations" --target integrations/"$ALB_INTEG_ID"
+echo "[INFO] ALB integrations: PING=${PING_INTEG_ID}, INVOC=${INVOC_INTEG_ID}"
 
+# --- 라우트 생성 (.env 경로 사용) ---
+aws apigatewayv2 create-route --api-id "${API_ID}" --route-key "GET ${PRESIGN_PATH}"  --target integrations/"${LAMBDA_INTEG_ID}" >/dev/null
+aws apigatewayv2 create-route --api-id "${API_ID}" --route-key "POST ${PRESIGN_PATH}" --target integrations/"${LAMBDA_INTEG_ID}" >/dev/null
+aws apigatewayv2 create-route --api-id "${API_ID}" --route-key "GET ${PING_PATH}"     --target integrations/"${PING_INTEG_ID}" >/dev/null
+aws apigatewayv2 create-route --api-id "${API_ID}" --route-key "POST ${INVOC_PATH}"   --target integrations/"${INVOC_INTEG_ID}" >/dev/null
 echo "[INFO] Routes created."
 
-# 5. Add Lambda permission
+# --- Lambda permission ---
 aws lambda add-permission \
-  --function-name "$DDN_LAMBDA_FUNC_NAME" \
+  --function-name "${DDN_LAMBDA_FUNC_NAME}" \
   --statement-id apigateway-access \
   --action lambda:InvokeFunction \
   --principal apigateway.amazonaws.com \
   --source-arn "arn:aws:execute-api:${AWS_REGION}:${ACCOUNT_ID}:${API_ID}/*/*" >/dev/null
 
-# 6. Deploy ($default는 리터럴)
+# --- Stage 배포 ---
 aws apigatewayv2 create-stage \
-  --api-id "$API_ID" \
-  --stage-name '$default' \
+  --api-id "${API_ID}" \
+  --stage-name "${DDN_APIGW_STAGE_NAME}" \
   --auto-deploy >/dev/null
 
-ENDPOINT="https://${API_ID}.execute-api.${AWS_REGION}.amazonaws.com"
-echo "[INFO] API Gateway deployed to stage: $DDN_APIGW_NAME/\$default"
-echo "[INFO] API Gateway endpoint:"
-echo "$ENDPOINT"
+upsert_env "DDN_APIGW_ID" "${API_ID}"
+upsert_env "DDN_APIGW_PING_INTEG_ID" "${PING_INTEG_ID}"
+upsert_env "DDN_APIGW_INVOC_INTEG_ID" "${INVOC_INTEG_ID}"
+upsert_env "DDN_APIGW_LAMBDA_INTEG_ID" "${LAMBDA_INTEG_ID}"
 
-# === add: 신규 생성 후도 .env 갱신 ===
-upsert_env "DDN_APIGW_ENDPOINT" "$ENDPOINT"
+ENDPOINT="https://${API_ID}.execute-api.${AWS_REGION}.amazonaws.com"
+echo "[INFO] Deployed: ${DDN_APIGW_NAME}/${DDN_APIGW_STAGE_NAME}"
+echo "[INFO] Endpoint: ${ENDPOINT}"
+upsert_env "DDN_APIGW_ENDPOINT" "${ENDPOINT}"
+
