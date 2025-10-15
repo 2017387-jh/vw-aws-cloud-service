@@ -111,15 +111,24 @@ else
   echo "[INFO] Added new DDN_ALB_DNS to .env"
 fi
 echo "[INFO] .env is now updated with DDN_ALB_DNS=$ALB_DNS"
-
 #############################################
 # 2) API Gateway HTTP_PROXY(=ALB) 통합 URI 갱신
 #############################################
 
-# 스킴/베이스패스 유연화 (미설정 시 기본값)
-ALB_SCHEME="${DDN_ALB_SCHEME:-http}"     # 필요 시 .env에 DDN_ALB_SCHEME=https
-ALB_BASEPATH="${DDN_ALB_BASEPATH:-}"     # 필요 시 .env에 DDN_ALB_BASEPATH=/api
-NEW_URI="${ALB_SCHEME}://${ALB_DNS}${ALB_BASEPATH}"
+# 스킴/베이스패스 유연화
+ALB_SCHEME="${DDN_ALB_SCHEME:-http}"          # 필요 시 .env에 DDN_ALB_SCHEME=https
+RAW_BASEPATH="${DDN_ALB_BASEPATH:-}"          # 필요 시 .env에 DDN_ALB_BASEPATH=/api 또는 api
+# 베이스패스 정규화: 선행 슬래시 1개, 끝 슬래시 제거, 빈값이면 공백
+if [ -n "$RAW_BASEPATH" ]; then
+  ALB_BASEPATH="/${RAW_BASEPATH#/}"
+  ALB_BASEPATH="${ALB_BASEPATH%/}"
+else
+  ALB_BASEPATH=""
+fi
+
+# 라우트 경로 지정(.env 없으면 기본값)
+PING_PATH="${DDN_APIGW_PING_PATH:-/ping}"
+INVOC_PATH="${DDN_APIGW_INVOCATIONS_PATH:-/invocations}"
 
 if [ -z "${DDN_APIGW_NAME:-}" ]; then
   echo "[WARN] DDN_APIGW_NAME not set. Skip API Gateway update."
@@ -134,56 +143,63 @@ else
   else
     echo "[INFO] Found API: $EXISTING_API_ID"
 
-    # /ping, /invocations 라우트 타겟 수집
-    ROUTE_TARGETS=$(aws apigatewayv2 get-routes --api-id "$EXISTING_API_ID" \
-      --query "Items[?RouteKey=='GET /ping' || RouteKey=='POST /invocations'].Target" \
+    # 2-1) GET {PING_PATH} 라우트의 통합 ID
+    PING_TARGET=$(aws apigatewayv2 get-routes --api-id "$EXISTING_API_ID" \
+      --query "Items[?RouteKey=='GET ${PING_PATH}'].Target" \
       --output text 2>/dev/null || true)
+    PING_INTEG_ID="${PING_TARGET#integrations/}"
 
-    # "integrations/xxx" → "xxx" 로 변환
-    INTEG_IDS_FROM_ROUTES=""
-    for T in $ROUTE_TARGETS; do
-      IID=${T#integrations/}
-      INTEG_IDS_FROM_ROUTES="$INTEG_IDS_FROM_ROUTES $IID"
-    done
-
-    # API 내 HTTP_PROXY 통합 ID들 수집
-    HTTP_PROXY_IDS=$(aws apigatewayv2 get-integrations --api-id "$EXISTING_API_ID" \
-      --query "Items[?IntegrationType=='HTTP_PROXY'].IntegrationId" \
+    # 2-2) POST {INVOC_PATH} 라우트의 통합 ID
+    INVOC_TARGET=$(aws apigatewayv2 get-routes --api-id "$EXISTING_API_ID" \
+      --query "Items[?RouteKey=='POST ${INVOC_PATH}'].Target" \
       --output text 2>/dev/null || true)
+    INVOC_INTEG_ID="${INVOC_TARGET#integrations/}"
 
-    # 업데이트 대상 통합 ID = 라우트 참조 + HTTP_PROXY 유형의 합집합
-    TO_UPDATE=$(echo "$INTEG_IDS_FROM_ROUTES $HTTP_PROXY_IDS" | tr ' ' '\n' | sort -u | tr '\n' ' ')
+    # 2-3) 라우트별 완전한 통합 URI 구성
+    # 예) http://<ALB_DNS>/<basepath>/ping
+    NEW_URI_PING="${ALB_SCHEME}://${ALB_DNS}${ALB_BASEPATH}${PING_PATH}"
+    NEW_URI_INVOC="${ALB_SCHEME}://${ALB_DNS}${ALB_BASEPATH}${INVOC_PATH}"
 
-    if [[ -z "$TO_UPDATE" ]]; then
-      echo "[WARN] No HTTP_PROXY integrations to update."
+    # 2-4) 통합 갱신
+    if [[ -n "$PING_INTEG_ID" && "$PING_INTEG_ID" != "None" ]]; then
+      echo "[INFO] Updating integration $PING_INTEG_ID (GET ${PING_PATH}) -> $NEW_URI_PING"
+      aws apigatewayv2 update-integration \
+        --api-id "$EXISTING_API_ID" \
+        --integration-id "$PING_INTEG_ID" \
+        --integration-uri "$NEW_URI_PING" >/dev/null 2>&1 || {
+          echo "[WARN] Failed to update integration $PING_INTEG_ID"
+        }
     else
-      for INTEG_ID in $TO_UPDATE; do
-        if [[ -n "$INTEG_ID" && "$INTEG_ID" != "None" ]]; then
-          echo "[INFO] Updating integration $INTEG_ID → $NEW_URI"
-          aws apigatewayv2 update-integration \
-            --api-id "$EXISTING_API_ID" \
-            --integration-id "$INTEG_ID" \
-            --integration-uri "$NEW_URI" >/dev/null 2>&1 || {
-              echo "[WARN] Failed to update integration $INTEG_ID"
-            }
-        fi
-      done
-      echo "[OK] API Gateway integrations updated."
-
-      # $default 스테이지 존재/AutoDeploy 보정
-      STAGE_INFO=$(aws apigatewayv2 get-stages --api-id "$EXISTING_API_ID" \
-        --query "Items[?StageName=='\$default'].AutoDeploy" --output text 2>/dev/null || true)
-
-      if [[ -z "$STAGE_INFO" || "$STAGE_INFO" == "None" ]]; then
-        echo "[INFO] Creating stage \$default with AutoDeploy=true"
-        aws apigatewayv2 create-stage --api-id "$EXISTING_API_ID" --stage-name '$default' --auto-deploy >/dev/null
-      elif [[ "$STAGE_INFO" != "true" ]]; then
-        echo "[INFO] Enabling AutoDeploy on \$default stage"
-        aws apigatewayv2 update-stage --api-id "$EXISTING_API_ID" --stage-name '$default' --auto-deploy >/dev/null
-      fi
-
-      echo "[INFO] API endpoint: https://${EXISTING_API_ID}.execute-api.${AWS_REGION}.amazonaws.com"
+      echo "[WARN] GET ${PING_PATH} route not found. Skipped."
     fi
+
+    if [[ -n "$INVOC_INTEG_ID" && "$INVOC_INTEG_ID" != "None" ]]; then
+      echo "[INFO] Updating integration $INVOC_INTEG_ID (POST ${INVOC_PATH}) -> $NEW_URI_INVOC"
+      aws apigatewayv2 update-integration \
+        --api-id "$EXISTING_API_ID" \
+        --integration-id "$INVOC_INTEG_ID" \
+        --integration-uri "$NEW_URI_INVOC" >/dev/null 2>&1 || {
+          echo "[WARN] Failed to update integration $INVOC_INTEG_ID"
+        }
+    else
+      echo "[WARN] POST ${INVOC_PATH} route not found. Skipped."
+    fi
+
+    echo "[OK] API Gateway integrations updated."
+
+    # $default 스테이지 존재/AutoDeploy 보정
+    STAGE_INFO=$(aws apigatewayv2 get-stages --api-id "$EXISTING_API_ID" \
+      --query "Items[?StageName=='\$default'].AutoDeploy" --output text 2>/dev/null || true)
+
+    if [[ -z "$STAGE_INFO" || "$STAGE_INFO" == "None" ]]; then
+      echo "[INFO] Creating stage \$default with AutoDeploy=true"
+      aws apigatewayv2 create-stage --api-id "$EXISTING_API_ID" --stage-name '$default' --auto-deploy >/dev/null
+    elif [[ "$STAGE_INFO" != "true" ]]; then
+      echo "[INFO] Enabling AutoDeploy on \$default stage"
+      aws apigatewayv2 update-stage --api-id "$EXISTING_API_ID" --stage-name '$default' --auto-deploy >/dev/null
+    fi
+
+    echo "[INFO] API endpoint: https://${EXISTING_API_ID}.execute-api.${AWS_REGION}.amazonaws.com"
   fi
 fi
 
