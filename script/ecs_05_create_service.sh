@@ -31,8 +31,10 @@ aws ecs create-service \
   --cluster "$DDN_ECS_CLUSTER" \
   --service-name "$DDN_ECS_SERVICE" \
   --task-definition "$REV" \
-  --desired-count "$DDN_ECS_DESIRED_COUNT" \
+  --desired-count "$DDN_ECS_DESIRED_TASK_COUNT" \
   --launch-type EC2 \
+  --placement-constraints type=distinctInstance \
+  --placement-strategy type=spread,field=attribute:ecs.availability-zone \
   --load-balancers "targetGroupArn=$TG_FLASK_ARN,containerName=$DDN_ECS_CONTAINER,containerPort=$DDN_FLASK_HTTP_PORT" \
   --health-check-grace-period-seconds 60 \
   --network-configuration "awsvpcConfiguration={subnets=[$SUBNETS_JSON],securityGroups=[\"$ECS_SG_ID\"],assignPublicIp=DISABLED}" \

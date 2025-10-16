@@ -56,6 +56,10 @@ LT_ID=$(aws ec2 create-launch-template \
           \"DeleteOnTermination\": true
         }
       }
+    ],
+    \"TagSpecifications\": [
+      { \"ResourceType\": \"instance\",
+        \"Tags\": [{\"Key\": \"Name\", \"Value\": \"$DDN_ECS_EC2_NAME\"}] }
     ]
   }" \
   --query 'LaunchTemplate.LaunchTemplateId' --output text 2>/dev/null || true)
@@ -74,7 +78,6 @@ if aws autoscaling describe-auto-scaling-groups --auto-scaling-group-names "$DDN
     --auto-scaling-group-name "$DDN_ASG_NAME" \
     --launch-template "LaunchTemplateId=$LT_ID,Version=\$Latest" \
     --min-size "$DDN_MIN_CAPACITY" \
-    --desired-capacity "$DDN_DESIRED_CAPACITY" \
     --max-size "$DDN_MAX_CAPACITY" \
     --vpc-zone-identifier "$DDN_SUBNET_IDS"
 else
@@ -82,7 +85,6 @@ else
     --auto-scaling-group-name "$DDN_ASG_NAME" \
     --launch-template "LaunchTemplateId=$LT_ID,Version=\$Latest" \
     --min-size "$DDN_MIN_CAPACITY" \
-    --desired-capacity "$DDN_DESIRED_CAPACITY" \
     --max-size "$DDN_MAX_CAPACITY" \
     --vpc-zone-identifier "$DDN_SUBNET_IDS"
   echo "[OK] ASG created: $DDN_ASG_NAME"

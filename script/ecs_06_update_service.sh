@@ -16,7 +16,7 @@ aws ecs update-service \
   --service "$DDN_ECS_SERVICE" \
   --task-definition "$DDN_ECS_TASK_FAMILY:$REV" \
   --force-new-deployment \
-  --desired-count "$DDN_ECS_DESIRED_COUNT" \
+  --desired-count "$DDN_ECS_DESIRED_TASK_COUNT" \
   >/dev/null
 
 # 배포 진행 상황 확인 (선택)
