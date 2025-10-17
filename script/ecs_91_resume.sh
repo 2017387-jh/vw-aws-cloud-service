@@ -9,7 +9,8 @@ echo "[RESUME] Resume ASG min/max (2~4)"
 aws autoscaling update-auto-scaling-group \
   --auto-scaling-group-name "$DDN_ASG_NAME" \
   --min-size "$DDN_MIN_CAPACITY" \
-  --max-size "$DDN_MAX_CAPACITY" >/dev/null
+  --max-size "$DDN_MAX_CAPACITY" \
+  --desired-capacity "$DDN_MIN_CAPACITY" >/dev/null
 
 echo "[RESUME] Resume Scalable Target min/max (2~4)"
 aws application-autoscaling register-scalable-target \
