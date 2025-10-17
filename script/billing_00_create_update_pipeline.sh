@@ -8,15 +8,21 @@ j() { aws "$@" --output json; }  # quick json alias
 
 echo "[0] Pre-check iam:PassRole for caller → Firehose role"
 ROLE_NAME="${BILLING_FIREHOSE_NAME}-role"
+
 CALLER_ARN=$(aws sts get-caller-identity --query Arn --output text)
 ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
 ROLE_ARN="arn:aws:iam::${ACCOUNT_ID}:role/${ROLE_NAME}"
+
+# 디버그 출력(문제 시 주석 풀고 확인)
+# set -x
+# echo "DEBUG CALLER_ARN=$CALLER_ARN"
+# echo "DEBUG ROLE_ARN=$ROLE_ARN"
 
 PASS_DECISION=$(aws iam simulate-principal-policy \
   --policy-source-arn "$CALLER_ARN" \
   --action-names iam:PassRole \
   --resource-arns "$ROLE_ARN" \
-  --context-entries key=iam:PassedToService,values=firehose.amazonaws.com \
+  --context-entries ContextKeyName=iam:PassedToService,ContextKeyValues=firehose.amazonaws.com,ContextKeyType=string \
   --query 'EvaluationResults[0].EvalDecision' --output text 2>/dev/null || echo "error")
 
 if [[ "$PASS_DECISION" != "allowed" ]]; then
@@ -25,6 +31,7 @@ if [[ "$PASS_DECISION" != "allowed" ]]; then
   exit 1
 fi
 echo "[OK] PassRole allowed."
+
 
 echo "[1] Create/ensure S3 bucket: ${BILLING_S3_BUCKET}"
 aws s3api head-bucket --bucket "${BILLING_S3_BUCKET}" 2>/dev/null || \
