@@ -16,7 +16,8 @@ upsert_env () {
 
 # .env 경로 변수
 PRESIGN_PATH="${DDN_APIGW_PRESIGN_PATH}"
-PING_PATH="${DDN_APIGW_PING_PATH}"
+APIGW_HEALTH_ROUTE="${DDN_APIGW_HEALTH_ROUTE:-/healthz}"
+ALB_HEALTH_PATH="${DDN_HEALTH_PATH:-/ping}"
 INVOC_PATH="${DDN_APIGW_INVOCATIONS_PATH}"
 
 ALB_BASE="http://${DDN_ALB_DNS}"
@@ -34,7 +35,7 @@ if [[ -n "${EXISTING_API_ID}" ]]; then
 
   # --- 통합 upsert (/ping) ---
   PING_INTEG_ID=$(aws apigatewayv2 get-integrations --api-id "${EXISTING_API_ID}" \
-    --query "Items[?IntegrationType=='HTTP_PROXY' && contains(IntegrationUri, '${PING_PATH}')].IntegrationId" \
+    --query "Items[?IntegrationType=='HTTP_PROXY' && contains(IntegrationUri, '${ALB_HEALTH_PATH}')].IntegrationId" \
     --output text | tr -d '\n')
   if [[ -n "${PING_INTEG_ID}" && "${PING_INTEG_ID}" != "None" ]]; then
     echo "[INFO] Update /ping integration: ${PING_INTEG_ID} -> ${ALB_PING_URI}"
@@ -76,7 +77,7 @@ if [[ -n "${EXISTING_API_ID}" ]]; then
 
   # --- 라우트 upsert (GET {PING_PATH}) ---
   PING_ROUTE_ID=$(aws apigatewayv2 get-routes --api-id "${EXISTING_API_ID}" \
-    --query "Items[?RouteKey=='GET ${PING_PATH}'].RouteId" --output text | tr -d '\n')
+    --query "Items[?RouteKey=='GET ${APIGW_HEALTH_ROUTE}'].RouteId" --output text | tr -d '\n')
   if [[ -n "${PING_ROUTE_ID}" && "${PING_ROUTE_ID}" != "None" ]]; then
     aws apigatewayv2 update-route \
       --api-id "${EXISTING_API_ID}" \
@@ -85,7 +86,7 @@ if [[ -n "${EXISTING_API_ID}" ]]; then
   else
     aws apigatewayv2 create-route \
       --api-id "${EXISTING_API_ID}" \
-      --route-key "GET ${PING_PATH}" \
+      --route-key "GET ${APIGW_HEALTH_ROUTE}" \
       --target "integrations/${PING_INTEG_ID}" >/dev/null
   fi
 
@@ -150,7 +151,7 @@ echo "[INFO] ALB integrations: PING=${PING_INTEG_ID}, INVOC=${INVOC_INTEG_ID}"
 # --- 라우트 생성 (.env 경로 사용) ---
 aws apigatewayv2 create-route --api-id "${API_ID}" --route-key "GET ${PRESIGN_PATH}"  --target integrations/"${LAMBDA_INTEG_ID}" >/dev/null
 aws apigatewayv2 create-route --api-id "${API_ID}" --route-key "POST ${PRESIGN_PATH}" --target integrations/"${LAMBDA_INTEG_ID}" >/dev/null
-aws apigatewayv2 create-route --api-id "${API_ID}" --route-key "GET ${PING_PATH}"     --target integrations/"${PING_INTEG_ID}" >/dev/null
+aws apigatewayv2 create-route --api-id "${API_ID}" --route-key "GET ${APIGW_HEALTH_ROUTE}"     --target integrations/"${PING_INTEG_ID}" >/dev/null
 aws apigatewayv2 create-route --api-id "${API_ID}" --route-key "POST ${INVOC_PATH}"   --target integrations/"${INVOC_INTEG_ID}" >/dev/null
 echo "[INFO] Routes created."
 

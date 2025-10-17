@@ -127,7 +127,8 @@ else
 fi
 
 # 라우트 경로 지정(.env 없으면 기본값)
-PING_PATH="${DDN_APIGW_PING_PATH:-/ping}"
+APIGW_HEALTH_ROUTE="${DDN_APIGW_HEALTH_ROUTE:-/healthz}"
+ALB_HEALTH_PATH="${DDN_HEALTH_PATH:-/ping}"
 INVOC_PATH="${DDN_APIGW_INVOCATIONS_PATH:-/invocations}"
 
 if [ -z "${DDN_APIGW_NAME:-}" ]; then
@@ -143,9 +144,9 @@ else
   else
     echo "[INFO] Found API: $EXISTING_API_ID"
 
-    # 2-1) GET {PING_PATH} 라우트의 통합 ID
+    # 2-1) GET {APIGW_HEALTH_ROUTE} 라우트의 통합 ID
     PING_TARGET=$(aws apigatewayv2 get-routes --api-id "$EXISTING_API_ID" \
-      --query "Items[?RouteKey=='GET ${PING_PATH}'].Target" \
+      --query "Items[?RouteKey=='GET ${APIGW_HEALTH_ROUTE}'].Target" \
       --output text 2>/dev/null || true)
     PING_INTEG_ID="${PING_TARGET#integrations/}"
 
@@ -157,12 +158,12 @@ else
 
     # 2-3) 라우트별 완전한 통합 URI 구성
     # 예) http://<ALB_DNS>/<basepath>/ping
-    NEW_URI_PING="${ALB_SCHEME}://${ALB_DNS}${ALB_BASEPATH}${PING_PATH}"
+    NEW_URI_PING="${ALB_SCHEME}://${ALB_DNS}${ALB_BASEPATH}${ALB_HEALTH_PATH}"
     NEW_URI_INVOC="${ALB_SCHEME}://${ALB_DNS}${ALB_BASEPATH}${INVOC_PATH}"
 
     # 2-4) 통합 갱신
     if [[ -n "$PING_INTEG_ID" && "$PING_INTEG_ID" != "None" ]]; then
-      echo "[INFO] Updating integration $PING_INTEG_ID (GET ${PING_PATH}) -> $NEW_URI_PING"
+      echo "[INFO] Updating integration $PING_INTEG_ID (GET ${ALB_HEALTH_PATH}) -> $NEW_URI_PING"
       aws apigatewayv2 update-integration \
         --api-id "$EXISTING_API_ID" \
         --integration-id "$PING_INTEG_ID" \
@@ -170,7 +171,7 @@ else
           echo "[WARN] Failed to update integration $PING_INTEG_ID"
         }
     else
-      echo "[WARN] GET ${PING_PATH} route not found. Skipped."
+      echo "[WARN] GET ${ALB_HEALTH_PATH} route not found. Skipped."
     fi
 
     if [[ -n "$INVOC_INTEG_ID" && "$INVOC_INTEG_ID" != "None" ]]; then
