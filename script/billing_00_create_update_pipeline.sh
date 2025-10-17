@@ -47,7 +47,7 @@ aws iam get-role --role-name "$ROLE_NAME" >/dev/null 2>&1 || \
 aws iam create-role --role-name "$ROLE_NAME" --assume-role-policy-document "$ASSUME_JSON" >/dev/null
 
 # 최소 권한: S3 + Logs (KMS 미사용 가정)
-read -r -d '' POLICY_JSON <<EOF
+POLICY_JSON=$(cat <<'EOF'
 {
  "Version":"2012-10-17",
  "Statement":[
@@ -69,10 +69,11 @@ read -r -d '' POLICY_JSON <<EOF
        "logs:DescribeLogStreams","logs:PutLogEvents"
      ],
      "Resource":"*"
-   ]
+   }
  ]
 }
 EOF
+)
 
 aws iam get-policy --policy-arn "arn:aws:iam::${ACCOUNT_ID}:policy/${POLICY_NAME}" >/dev/null 2>&1 || \
 aws iam create-policy --policy-name "${POLICY_NAME}" --policy-document "$POLICY_JSON" >/dev/null || true
