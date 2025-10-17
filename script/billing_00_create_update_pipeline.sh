@@ -1,23 +1,20 @@
 #!/usr/bin/env bash
 set -euo pipefail
+
+# --- Load env and set region ---
 source .env
 aws configure set region "${AWS_REGION}"
 
-# --- Helper ---
+# --- Helpers ---
 j() { aws "$@" --output json; }  # quick json alias
 
 echo "[0] Pre-check iam:PassRole for caller → Firehose role"
 ROLE_NAME="${BILLING_FIREHOSE_NAME}-role"
-
 CALLER_ARN=$(aws sts get-caller-identity --query Arn --output text)
 ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
 ROLE_ARN="arn:aws:iam::${ACCOUNT_ID}:role/${ROLE_NAME}"
 
-# 디버그 출력(문제 시 주석 풀고 확인)
-# set -x
-# echo "DEBUG CALLER_ARN=$CALLER_ARN"
-# echo "DEBUG ROLE_ARN=$ROLE_ARN"
-
+# Correct parameter names for --context-entries
 PASS_DECISION=$(aws iam simulate-principal-policy \
   --policy-source-arn "$CALLER_ARN" \
   --action-names iam:PassRole \
@@ -32,60 +29,74 @@ if [[ "$PASS_DECISION" != "allowed" ]]; then
 fi
 echo "[OK] PassRole allowed."
 
-
 echo "[1] Create/ensure S3 bucket: ${BILLING_S3_BUCKET}"
-aws s3api head-bucket --bucket "${BILLING_S3_BUCKET}" 2>/dev/null || \
-aws s3api create-bucket --bucket "${BILLING_S3_BUCKET}" --create-bucket-configuration LocationConstraint="${AWS_REGION}"
+# head-bucket 성공시 리전 확인만 출력, 없으면 생성
+if aws s3api head-bucket --bucket "${BILLING_S3_BUCKET}" 2>/dev/null; then
+  aws s3api get-bucket-location --bucket "${BILLING_S3_BUCKET}" || true
+else
+  aws s3api create-bucket --bucket "${BILLING_S3_BUCKET}" \
+    --create-bucket-configuration "LocationConstraint=${AWS_REGION}"
+fi
 
 echo "[2] Create/ensure IAM role for Firehose"
 POLICY_NAME="${BILLING_FIREHOSE_NAME}-policy"
-ASSUME_JSON='{
- "Version":"2012-10-17",
- "Statement":[{"Effect":"Allow","Principal":{"Service":"firehose.amazonaws.com"},"Action":"sts:AssumeRole"}]
-}'
-aws iam get-role --role-name "$ROLE_NAME" >/dev/null 2>&1 || \
-aws iam create-role --role-name "$ROLE_NAME" --assume-role-policy-document "$ASSUME_JSON" >/dev/null
 
-# 최소 권한: S3 + Logs (KMS 미사용 가정)
-POLICY_JSON=$(cat <<'EOF'
+ASSUME_JSON=$(cat <<'EOF'
 {
- "Version":"2012-10-17",
- "Statement":[
-   {
-     "Effect":"Allow",
-     "Action":[
-       "s3:AbortMultipartUpload","s3:GetBucketLocation","s3:GetObject",
-       "s3:ListBucket","s3:ListBucketMultipartUploads","s3:PutObject"
-     ],
-     "Resource":[
-       "arn:aws:s3:::${BILLING_S3_BUCKET}",
-       "arn:aws:s3:::${BILLING_S3_BUCKET}/*"
-     ]
-   },
-   {
-     "Effect":"Allow",
-     "Action":[
-       "logs:CreateLogGroup","logs:CreateLogStream",
-       "logs:DescribeLogStreams","logs:PutLogEvents"
-     ],
-     "Resource":"*"
-   }
- ]
+  "Version":"2012-10-17",
+  "Statement":[
+    {"Effect":"Allow","Principal":{"Service":"firehose.amazonaws.com"},"Action":"sts:AssumeRole"}
+  ]
 }
 EOF
 )
 
-aws iam get-policy --policy-arn "arn:aws:iam::${ACCOUNT_ID}:policy/${POLICY_NAME}" >/dev/null 2>&1 || \
-aws iam create-policy --policy-name "${POLICY_NAME}" --policy-document "$POLICY_JSON" >/dev/null || true
+# Create role if not exists, then attach minimal S3+Logs policy
+if ! aws iam get-role --role-name "$ROLE_NAME" >/dev/null 2>&1; then
+  aws iam create-role --role-name "$ROLE_NAME" --assume-role-policy-document "$ASSUME_JSON" >/dev/null
+fi
+
+POLICY_JSON=$(cat <<EOF
+{
+  "Version":"2012-10-17",
+  "Statement":[
+    {
+      "Effect":"Allow",
+      "Action":[
+        "s3:AbortMultipartUpload","s3:GetBucketLocation","s3:GetObject",
+        "s3:ListBucket","s3:ListBucketMultipartUploads","s3:PutObject"
+      ],
+      "Resource":[
+        "arn:aws:s3:::${BILLING_S3_BUCKET}",
+        "arn:aws:s3:::${BILLING_S3_BUCKET}/*"
+      ]
+    },
+    {
+      "Effect":"Allow",
+      "Action":[
+        "logs:CreateLogGroup","logs:CreateLogStream",
+        "logs:DescribeLogStreams","logs:PutLogEvents"
+      ],
+      "Resource":"*"
+    }
+  ]
+}
+EOF
+)
+
+if ! aws iam get-policy --policy-arn "arn:aws:iam::${ACCOUNT_ID}:policy/${POLICY_NAME}" >/dev/null 2>&1; then
+  aws iam create-policy --policy-name "${POLICY_NAME}" --policy-document "$POLICY_JSON" >/dev/null || true
+fi
 aws iam attach-role-policy --role-name "$ROLE_NAME" \
   --policy-arn "arn:aws:iam::${ACCOUNT_ID}:policy/${POLICY_NAME}" >/dev/null || true
 
-# 전파 대기 (짧게)
-sleep 5
+# small propagation wait
+aws iam wait role-exists --role-name "$ROLE_NAME" || true
+sleep 8
 ROLE_ARN=$(aws iam get-role --role-name "$ROLE_NAME" --query 'Role.Arn' --output text)
 
 echo "[3] Create/ensure Firehose delivery stream → S3"
-# CloudWatch Logs 옵션은 일단 꺼두고 생성 → 나중에 업데이트에서 켬(권한 원인 분리)
+# Create with CloudWatchLoggingOptions disabled first
 S3CONF_MIN=$(cat <<EOF
 {"RoleARN":"${ROLE_ARN}",
  "BucketARN":"arn:aws:s3:::${BILLING_S3_BUCKET}",
@@ -96,8 +107,8 @@ S3CONF_MIN=$(cat <<EOF
  "CloudWatchLoggingOptions":{"Enabled":false}}
 EOF
 )
-EXISTS=$(aws firehose list-delivery-streams --query "DeliveryStreamNames[?@=='${BILLING_FIREHOSE_NAME}']" --output text)
 
+EXISTS=$(aws firehose list-delivery-streams --query "DeliveryStreamNames[?@=='${BILLING_FIREHOSE_NAME}']" --output text)
 if [[ -z "${EXISTS}" ]]; then
   aws firehose create-delivery-stream \
     --delivery-stream-name "${BILLING_FIREHOSE_NAME}" \
@@ -105,7 +116,7 @@ if [[ -z "${EXISTS}" ]]; then
     --s3-destination-configuration "${S3CONF_MIN}" >/dev/null
   echo "[OK] Firehose created: ${BILLING_FIREHOSE_NAME}"
 else
-  # DestinationId 조회
+  # ensure minimal config on existing destination
   DEST_ID=$(aws firehose describe-delivery-stream \
     --delivery-stream-name "${BILLING_FIREHOSE_NAME}" \
     --query 'DeliveryStreamDescription.Destinations[0].DestinationId' --output text)
@@ -119,9 +130,18 @@ else
     --s3-destination-update "${S3CONF_MIN}" >/dev/null || true
   echo "[OK] Firehose updated (minimal)."
 fi
-FIREHOSE_ARN="arn:aws:firehose:${AWS_REGION}:${ACCOUNT_ID}:deliverystream/${BILLING_FIREHOSE_NAME}"
 
-# 이제 CloudWatch Logs 옵션을 켬 (권한 문제시 여기서만 실패하게)
+# Wait until stream ACTIVE before enabling CloudWatch logging
+echo "[3.1] Wait until Firehose is ACTIVE"
+for i in {1..30}; do
+  STATUS=$(aws firehose describe-delivery-stream \
+    --delivery-stream-name "${BILLING_FIREHOSE_NAME}" \
+    --query 'DeliveryStreamDescription.DeliveryStreamStatus' --output text)
+  [[ "$STATUS" == "ACTIVE" ]] && break
+  echo "  - status=$STATUS (retry $i)"; sleep 5
+done
+
+# Enable logging after ACTIVE
 S3CONF_LOGS=$(cat <<EOF
 {"RoleARN":"${ROLE_ARN}",
  "BucketARN":"arn:aws:s3:::${BILLING_S3_BUCKET}",
@@ -132,6 +152,7 @@ S3CONF_LOGS=$(cat <<EOF
  "CloudWatchLoggingOptions":{"Enabled":true,"LogGroupName":"/aws/firehose/${BILLING_FIREHOSE_NAME}","LogStreamName":"S3Delivery"}}
 EOF
 )
+
 DEST_ID=$(aws firehose describe-delivery-stream \
   --delivery-stream-name "${BILLING_FIREHOSE_NAME}" \
   --query 'DeliveryStreamDescription.Destinations[0].DestinationId' --output text)
@@ -145,14 +166,15 @@ aws firehose update-destination \
   --destination-id "${DEST_ID}" \
   --s3-destination-update "${S3CONF_LOGS}" >/dev/null || echo "[WARN] Firehose CloudWatch Logs 활성화 실패(권한 필요)."
 
+FIREHOSE_ARN="arn:aws:firehose:${AWS_REGION}:${ACCOUNT_ID}:deliverystream/${BILLING_FIREHOSE_NAME}"
+
 echo "[4] Create/ensure CloudWatch Log Group for API Gateway access logs"
 aws logs describe-log-groups --log-group-name-prefix "${BILLING_LOG_GROUP}" \
   --query 'logGroups[0].logGroupName' --output text | grep -q "${BILLING_LOG_GROUP}" || \
 aws logs create-log-group --log-group-name "${BILLING_LOG_GROUP}"
 aws logs put-retention-policy --log-group-name "${BILLING_LOG_GROUP}" --retention-in-days 30 >/dev/null || true
 
-echo "[5] Put resource policy (CloudWatch Logs → Firehose subscription)"
-# 조건을 좁히면 실패 케이스가 많아질 수 있으니 처음엔 단순 허용
+echo "[5] Put resource policy (CloudWatch Logs → Firehose subscription) [optional]"
 POLICY_DOC=$(cat <<EOF
 {
   "Version":"2012-10-17",
@@ -171,27 +193,66 @@ EOF
 aws logs put-resource-policy --policy-name "FirehoseSubscriptionPolicy" \
   --policy-document "${POLICY_DOC}" >/dev/null || true
 
-echo "[6] Subscribe the log group to Firehose"
+echo "[6] Subscribe the log group to Firehose (with role-arn)"
+# Create role for CloudWatch Logs → Firehose subscription
+LOGS_TO_FH_ROLE="${BILLING_FIREHOSE_NAME}-logs-to-fh-role"
+ASSUME_LOGS_JSON=$(cat <<EOF
+{
+ "Version":"2012-10-17",
+ "Statement":[{"Effect":"Allow","Principal":{"Service":"logs.${AWS_REGION}.amazonaws.com"},"Action":"sts:AssumeRole"}]
+}
+EOF
+)
+if ! aws iam get-role --role-name "$LOGS_TO_FH_ROLE" >/dev/null 2>&1; then
+  aws iam create-role --role-name "$LOGS_TO_FH_ROLE" --assume-role-policy-document "$ASSUME_LOGS_JSON" >/dev/null
+fi
+
+LOGS_TO_FH_POLICY="${BILLING_FIREHOSE_NAME}-logs-to-fh-policy"
+LOGS_TO_FH_POLICY_DOC=$(cat <<EOF
+{
+ "Version":"2012-10-17",
+ "Statement":[
+   {"Effect":"Allow","Action":["firehose:PutRecord","firehose:PutRecordBatch"],"Resource":"${FIREHOSE_ARN}"}
+ ]
+}
+EOF
+)
+if ! aws iam get-policy --policy-arn "arn:aws:iam::${ACCOUNT_ID}:policy/${LOGS_TO_FH_POLICY}" >/dev/null 2>&1; then
+  aws iam create-policy --policy-name "${LOGS_TO_FH_POLICY}" --policy-document "$LOGS_TO_FH_POLICY_DOC" >/dev/null || true
+fi
+aws iam attach-role-policy --role-name "$LOGS_TO_FH_ROLE" \
+  --policy-arn "arn:aws:iam::${ACCOUNT_ID}:policy/${LOGS_TO_FH_POLICY}" >/dev/null || true
+LOGS_TO_FH_ROLE_ARN=$(aws iam get-role --role-name "$LOGS_TO_FH_ROLE" --query 'Role.Arn' --output text)
+
+# put-subscription-filter with role arn
 aws logs put-subscription-filter \
   --log-group-name "${BILLING_LOG_GROUP}" \
   --filter-name "ToFirehose" \
   --filter-pattern "" \
-  --destination-arn "${FIREHOSE_ARN}" >/dev/null || true
+  --destination-arn "${FIREHOSE_ARN}" \
+  --role-arn "${LOGS_TO_FH_ROLE_ARN}" >/dev/null || true
 
 echo "[7] Enable API Gateway Access Logging to the log group (HTTP API)"
 API_ID=$(aws apigatewayv2 get-apis --query "Items[?Name=='${DDN_APIGW_NAME}'].ApiId" --output text)
 if [[ -z "${API_ID}" || "${API_ID}" == "None" ]]; then
   echo "[WARN] API Gateway not found. Run your API create script first."
+  echo "[DONE] Billing pipeline upsert complete with warnings."
   exit 0
 fi
 
-# 리터럴 $default 처리
+# Handle literal $default
 STAGE_NAME="${DDN_APIGW_STAGE_NAME:-\$default}"
+
+# Format string may contain quotes and $context. Escape $ to avoid shell/cli expansion.
+FMT="${BILLING_LOG_FORMAT}"
+# If .env wrapped with single quotes, strip them
+if [[ "${FMT}" == \'*\' ]]; then FMT="${FMT:1:-1}"; fi
+FMT_ESC="${FMT//\$/\\$}"
 
 aws apigatewayv2 update-stage \
   --api-id "${API_ID}" \
   --stage-name "${STAGE_NAME}" \
-  --access-log-settings "DestinationArn=arn:aws:logs:${AWS_REGION}:${ACCOUNT_ID}:log-group:${BILLING_LOG_GROUP},Format=${BILLING_LOG_FORMAT}" \
+  --access-log-settings "DestinationArn=arn:aws:logs:${AWS_REGION}:${ACCOUNT_ID}:log-group:${BILLING_LOG_GROUP},Format=${FMT_ESC}" \
   --auto-deploy >/dev/null
 
 echo "[OK] API access logging → ${BILLING_LOG_GROUP}"
