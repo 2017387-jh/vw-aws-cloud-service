@@ -247,12 +247,21 @@ STAGE_NAME="${DDN_APIGW_STAGE_NAME:-\$default}"
 FMT="${BILLING_LOG_FORMAT}"
 # If .env wrapped with single quotes, strip them
 if [[ "${FMT}" == \'*\' ]]; then FMT="${FMT:1:-1}"; fi
-FMT_ESC="${FMT//\$/\\$}"
+
+# 1) $context 가 쉘에서 풀리지 않도록 escape
+FMT_ESC=$(printf '%s' "$BILLING_LOG_FORMAT" \
+  | sed -e 's/\\/\\\\/g' -e 's/"/\\"/g' -e 's/\$/\\$/g')
+
+# 2) 구조형 인자를 JSON으로 전달
+ACCESS_JSON="{\"DestinationArn\":\"arn:aws:logs:${AWS_REGION}:${ACCOUNT_ID}:log-group:${BILLING_LOG_GROUP}\",\"Format\":\"${FMT_ESC}\"}"
+
+# 3) stage 이름이 $default 라면 리터럴로 넘기기
+STAGE_NAME="${DDN_APIGW_STAGE_NAME:-\$default}"
 
 aws apigatewayv2 update-stage \
   --api-id "${API_ID}" \
   --stage-name "${STAGE_NAME}" \
-  --access-log-settings "DestinationArn=arn:aws:logs:${AWS_REGION}:${ACCOUNT_ID}:log-group:${BILLING_LOG_GROUP},Format=${FMT_ESC}" \
+  --access-log-settings "${ACCESS_JSON}" \
   --auto-deploy >/dev/null
 
 echo "[OK] API access logging → ${BILLING_LOG_GROUP}"
