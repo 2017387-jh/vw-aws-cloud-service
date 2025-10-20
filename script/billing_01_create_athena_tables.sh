@@ -60,14 +60,14 @@ WITH (
   parquet_compression = 'SNAPPY',
   partitioned_by = ARRAY['year','month','day']
 ) AS
-SELECT user, sub, httpMethod, path, status,
+SELECT user, sub, httpMethod, path, routeKey, status,
        date_format(from_unixtime(requestTime/1000), '%Y-%m-%d') AS req_date,
        year(from_unixtime(requestTime/1000))  AS year,
        month(from_unixtime(requestTime/1000)) AS month,
        day(from_unixtime(requestTime/1000))   AS day,
        count(*) AS calls, sum(responseLength) AS total_bytes
 FROM ${SRC_DB}.${SRC_TBL}
-GROUP BY user, sub, httpMethod, path, status,
+GROUP BY user, sub, httpMethod, path, routeKey, status,
          date_format(from_unixtime(requestTime/1000), '%Y-%m-%d'),
          year(from_unixtime(requestTime/1000)),
          month(from_unixtime(requestTime/1000)),
