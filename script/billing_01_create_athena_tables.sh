@@ -5,7 +5,7 @@ aws configure set region "${AWS_REGION}"
 
 echo "[A] Create/ensure Athena workgroup"
 aws athena get-work-group --work-group "${BILLING_ATHENA_WORKGROUP}" >/dev/null 2>&1 || \
-aws athena create-work-group --name "${BILLING_ATHENA_WORKGROUP}" --state ENABLED \
+aws athena create-work-group --name "${BILLING_ATHENA_WORKGROUP}" \
   --configuration ResultConfiguration="{OutputLocation:s3://${BILLING_S3_BUCKET}/athena-results/}" >/dev/null
 
 echo "[B] Create Glue database if not exists"
