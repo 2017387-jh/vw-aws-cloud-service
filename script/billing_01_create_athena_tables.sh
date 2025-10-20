@@ -3,12 +3,12 @@ set -euo pipefail
 source .env
 aws configure set region "${AWS_REGION}"
 
-echo "[A] Create/ensure Athena workgroup"
+echo "[1] Create/ensure Athena workgroup"
 aws athena get-work-group --work-group "${BILLING_ATHENA_WORKGROUP}" >/dev/null 2>&1 || \
 aws athena create-work-group --name "${BILLING_ATHENA_WORKGROUP}" \
     --configuration ResultConfiguration={OutputLocation=s3://${BILLING_S3_BUCKET}/athena-results/} >/dev/null
 
-echo "[B] Create Glue database if not exists"
+echo "[2] Create Glue database if not exists"
 aws glue get-database --name "${BILLING_GLUE_DB}" >/dev/null 2>&1 || \
 aws glue create-database --database-input "Name=${BILLING_GLUE_DB}" >/dev/null
 
@@ -36,7 +36,7 @@ LOCATION '${S3_JSON_PREFIX}';
 EOF
 )
 
-echo "[C] Create DB & JSON table"
+echo "[3] Create DB & JSON table"
 aws athena start-query-execution \
   --query-string "${SQL_CREATE_DB}" \
   --work-group "${BILLING_ATHENA_WORKGROUP}" >/dev/null
@@ -44,19 +44,18 @@ aws athena start-query-execution \
   --query-string "${SQL_CREATE_JSON_TABLE}" \
   --work-group "${BILLING_ATHENA_WORKGROUP}" >/dev/null
 
-echo "[D] MSCK REPAIR to load partitions"
+echo "[4] MSCK REPAIR to load partitions"
 aws athena start-query-execution \
   --query-string "MSCK REPAIR TABLE ${BILLING_GLUE_DB}.${BILLING_TABLE_JSON};" \
   --work-group "${BILLING_ATHENA_WORKGROUP}" >/dev/null
 
-echo "[E] (Optional) Parquet CTAS daily aggregation table"
+echo "[5] (Optional) Parquet CTAS daily aggregation table"
 PARQUET_LOC="s3://${BILLING_S3_BUCKET}/${BILLING_PARQUET_PREFIX}"
 SQL_CREATE_PARQUET=$(cat <<'EOF'
 CREATE TABLE IF NOT EXISTS ${DB}.${TBL}
 WITH (
   format = 'PARQUET',
   parquet_compression = 'SNAPPY',
-  external_location = '${LOC}',
   partitioned_by = ARRAY['year','month','day']
 ) AS
 SELECT user, sub, httpMethod, resourcePath, status,
