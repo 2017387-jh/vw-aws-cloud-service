@@ -6,15 +6,13 @@ aws configure set region "${AWS_REGION}"
 echo "[1] Create/ensure Athena workgroup"
 aws athena get-work-group --work-group "${BILLING_ATHENA_WORKGROUP}" >/dev/null 2>&1 || \
 aws athena create-work-group --name "${BILLING_ATHENA_WORKGROUP}" \
-    --configuration ResultConfiguration={OutputLocation=s3://${BILLING_S3_BUCKET}/athena-results/} >/dev/null
+  --configuration ResultConfiguration={OutputLocation=s3://${BILLING_S3_BUCKET}/athena-results/} >/dev/null
 
 echo "[2] Create Glue database if not exists"
 aws glue get-database --name "${BILLING_GLUE_DB}" >/dev/null 2>&1 || \
 aws glue create-database --database-input "Name=${BILLING_GLUE_DB}" >/dev/null
 
-S3_JSON_PREFIX="s3://${BILLING_S3_BUCKET}/json-data"
-
-SQL_CREATE_DB="CREATE DATABASE IF NOT EXISTS ${BILLING_GLUE_DB};"
+echo "[3] Create EXTERNAL JSON table (single, no _raw/view)"
 SQL_CREATE_JSON_TABLE=$(cat <<EOF
 CREATE EXTERNAL TABLE IF NOT EXISTS ${BILLING_GLUE_DB}.${BILLING_TABLE_JSON}(
   requestId string,
@@ -38,10 +36,10 @@ LOCATION 's3://${BILLING_S3_BUCKET}/json-data';
 EOF
 )
 
-echo "[3] Create DB & JSON table"
 aws athena start-query-execution \
-  --query-string "${SQL_CREATE_DB}" \
+  --query-string "CREATE DATABASE IF NOT EXISTS ${BILLING_GLUE_DB};" \
   --work-group "${BILLING_ATHENA_WORKGROUP}" >/dev/null
+
 aws athena start-query-execution \
   --query-string "${SQL_CREATE_JSON_TABLE}" \
   --work-group "${BILLING_ATHENA_WORKGROUP}" >/dev/null
@@ -51,7 +49,7 @@ aws athena start-query-execution \
   --query-string "MSCK REPAIR TABLE ${BILLING_GLUE_DB}.${BILLING_TABLE_JSON};" \
   --work-group "${BILLING_ATHENA_WORKGROUP}" >/dev/null
 
-echo "[5] (Optional) Parquet CTAS daily aggregation table"
+echo "[5] (Optional) Parquet daily aggregation CTAS (includes routeKey)"
 PARQUET_LOC="s3://${BILLING_S3_BUCKET}/${BILLING_PARQUET_PREFIX}"
 SQL_CREATE_PARQUET=$(cat <<'EOF'
 CREATE TABLE IF NOT EXISTS ${DB}.${TBL}
@@ -76,7 +74,6 @@ EOF
 )
 SQL_CREATE_PARQUET="${SQL_CREATE_PARQUET//\$\{DB\}/${BILLING_GLUE_DB}}"
 SQL_CREATE_PARQUET="${SQL_CREATE_PARQUET//\$\{TBL\}/${BILLING_TABLE_PARQUET}}"
-SQL_CREATE_PARQUET="${SQL_CREATE_PARQUET//\$\{LOC\}/${PARQUET_LOC}}"
 SQL_CREATE_PARQUET="${SQL_CREATE_PARQUET//\$\{SRC_DB\}/${BILLING_GLUE_DB}}"
 SQL_CREATE_PARQUET="${SQL_CREATE_PARQUET//\$\{SRC_TBL\}/${BILLING_TABLE_JSON}}"
 
@@ -84,4 +81,4 @@ aws athena start-query-execution \
   --query-string "${SQL_CREATE_PARQUET}" \
   --work-group "${BILLING_ATHENA_WORKGROUP}" >/dev/null
 
-echo "[OK] Athena tables ready: ${BILLING_TABLE_JSON}, ${BILLING_TABLE_PARQUET}"
+echo "[OK] Athena ready → ${BILLING_TABLE_JSON}, ${BILLING_TABLE_PARQUET}"

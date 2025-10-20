@@ -5,10 +5,9 @@ set -euo pipefail
 source .env
 aws configure set region "${AWS_REGION}"
 
-# 공통 변수
 ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
 API_ID=$(aws apigatewayv2 get-apis --query "Items[?Name=='${DDN_APIGW_NAME}'].ApiId" --output text || true)
-STAGE_NAME="${DDN_APIGW_STAGE_NAME:-\$default}"  # 리터럴 유지
+STAGE_NAME="${DDN_APIGW_STAGE_NAME:-\$default}"
 
 FIREHOSE_ROLE="${BILLING_FIREHOSE_NAME}-role"
 FIREHOSE_POLICY="${BILLING_FIREHOSE_NAME}-policy"
@@ -22,8 +21,7 @@ if [[ -n "${API_ID}" && "${API_ID}" != "None" ]]; then
     --stage-name '$default' >/dev/null 2>&1 || true
 fi
 
-echo "[D2] Remove CloudWatch Logs subscription filters"
-# 로그 그룹 존재 시 구독 전량 삭제
+echo "[D2] Remove all subscription filters on ${BILLING_LOG_GROUP}"
 if aws logs describe-log-groups --log-group-name-prefix "${BILLING_LOG_GROUP}" \
   --query 'logGroups[0].logGroupName' --output text | grep -q "${BILLING_LOG_GROUP}"; then
   EXISTING=$(aws logs describe-subscription-filters \
@@ -44,32 +42,31 @@ aws firehose delete-delivery-stream \
   --delivery-stream-name "${BILLING_FIREHOSE_NAME}" \
   --allow-force-delete true >/dev/null 2>&1 || true
 
-echo "[D4] Delete IAM roles and policies"
-# Firehose S3 전송 역할/정책
-aws iam detach-role-policy \
-  --role-name "${FIREHOSE_ROLE}" \
+echo "[D4] Delete IAM roles/policies"
+aws iam detach-role-policy --role-name "${FIREHOSE_ROLE}" \
   --policy-arn "arn:aws:iam::${ACCOUNT_ID}:policy/${FIREHOSE_POLICY}" >/dev/null 2>&1 || true
 aws iam delete-policy --policy-arn "arn:aws:iam::${ACCOUNT_ID}:policy/${FIREHOSE_POLICY}" >/dev/null 2>&1 || true
 aws iam delete-role --role-name "${FIREHOSE_ROLE}" >/dev/null 2>&1 || true
 
-# CloudWatch Logs → Firehose 구독 역할/정책
-aws iam detach-role-policy \
-  --role-name "${LOGS_TO_FH_ROLE}" \
+aws iam detach-role-policy --role-name "${LOGS_TO_FH_ROLE}" \
   --policy-arn "arn:aws:iam::${ACCOUNT_ID}:policy/${LOGS_TO_FH_POLICY}" >/dev/null 2>&1 || true
 aws iam delete-policy --policy-arn "arn:aws:iam::${ACCOUNT_ID}:policy/${LOGS_TO_FH_POLICY}" >/dev/null 2>&1 || true
 aws iam delete-role --role-name "${LOGS_TO_FH_ROLE}" >/dev/null 2>&1 || true
 
-echo "[D5] Drop Athena view/tables and workgroup"
-aws athena start-query-execution --work-group "${BILLING_ATHENA_WORKGROUP}" \
-  --query-string "DROP VIEW IF EXISTS ${BILLING_GLUE_DB}.${BILLING_TABLE_JSON};" >/dev/null 2>&1 || true
-aws athena start-query-execution --work-group "${BILLING_ATHENA_WORKGROUP}" \
-  --query-string "DROP TABLE IF EXISTS ${BILLING_GLUE_DB}.${BILLING_TABLE_JSON}_raw;" >/dev/null 2>&1 || true
+echo "[D5] Drop Athena table(s) & workgroup"
+# 지금 버전만 유지: 단일 JSON 테이블/Parquet 집계 테이블만 드롭
 aws athena start-query-execution --work-group "${BILLING_ATHENA_WORKGROUP}" \
   --query-string "DROP TABLE IF EXISTS ${BILLING_GLUE_DB}.${BILLING_TABLE_PARQUET};" >/dev/null 2>&1 || true
+aws athena start-query-execution --work-group "${BILLING_ATHENA_WORKGROUP}" \
+  --query-string "DROP TABLE IF EXISTS ${BILLING_GLUE_DB}.${BILLING_TABLE_JSON};" >/dev/null 2>&1 || true
+
+# Glue DB 삭제(남은 테이블 없으면 성공)
 aws glue delete-database --name "${BILLING_GLUE_DB}" >/dev/null 2>&1 || true
+
+# 워크그룹 삭제
 aws athena delete-work-group --work-group "${BILLING_ATHENA_WORKGROUP}" --recursive-delete-option >/dev/null 2>&1 || true
 
-echo "[D6] Empty and delete S3 bucket for logs"
+echo "[D6] Empty & delete S3 bucket (logs + athena results)"
 aws s3 rb "s3://${BILLING_S3_BUCKET}" --force >/dev/null 2>&1 || true
 
 echo "[D7] Delete log groups"

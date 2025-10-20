@@ -93,15 +93,15 @@ aws iam wait role-exists --role-name "$ROLE_NAME" || true
 sleep 8
 ROLE_ARN=$(aws iam get-role --role-name "$ROLE_NAME" --query 'Role.Arn' --output text)
 
-echo "[3] Create or update Firehose delivery stream → S3"
-S3CONF_MIN=$(cat <<EOF
+echo "[3] Create or update Firehose delivery stream → S3 (fast buffering)"
+S3CONF=$(cat <<EOF
 {"RoleARN":"${ROLE_ARN}",
  "BucketARN":"arn:aws:s3:::${BILLING_S3_BUCKET}",
  "Prefix":"${BILLING_S3_PREFIX}",
  "ErrorOutputPrefix":"${BILLING_S3_ERROR_PREFIX}",
- "BufferingHints":{"IntervalInSeconds":300,"SizeInMBs":128},
+ "BufferingHints":{"IntervalInSeconds":60,"SizeInMBs":1},
  "CompressionFormat":"GZIP",
- "CloudWatchLoggingOptions":{"Enabled":false}}
+ "CloudWatchLoggingOptions":{"Enabled":true,"LogGroupName":"/aws/kinesisfirehose/${BILLING_FIREHOSE_NAME}","LogStreamName":"S3Delivery"}}
 EOF
 )
 
@@ -110,7 +110,7 @@ if [[ -z "${EXISTS}" ]]; then
   aws firehose create-delivery-stream \
     --delivery-stream-name "${BILLING_FIREHOSE_NAME}" \
     --delivery-stream-type DirectPut \
-    --s3-destination-configuration "${S3CONF_MIN}" >/dev/null
+    --s3-destination-configuration "${S3CONF}" >/dev/null
   echo "[OK] Firehose created: ${BILLING_FIREHOSE_NAME}"
 else
   DEST_ID=$(aws firehose describe-delivery-stream \
@@ -123,8 +123,8 @@ else
     --delivery-stream-name "${BILLING_FIREHOSE_NAME}" \
     --current-delivery-stream-version-id "${VER_ID}" \
     --destination-id "${DEST_ID}" \
-    --s3-destination-update "${S3CONF_MIN}" >/dev/null || true
-  echo "[OK] Firehose updated (minimal)."
+    --s3-destination-update "${S3CONF}" >/dev/null || true
+  echo "[OK] Firehose updated (fast buffering)."
 fi
 
 echo "[3.1] Wait until Firehose is ACTIVE"
@@ -135,31 +135,6 @@ for i in {1..30}; do
   [[ "$STATUS" == "ACTIVE" ]] && break
   echo "  - status=$STATUS (retry $i)"; sleep 5
 done
-
-# 빠른 확인을 위해 버퍼 60초/1MB + 로깅 활성화
-DEST_ID=$(aws firehose describe-delivery-stream \
-  --delivery-stream-name "${BILLING_FIREHOSE_NAME}" \
-  --query 'DeliveryStreamDescription.Destinations[0].DestinationId' --output text)
-VER_ID=$(aws firehose describe-delivery-stream \
-  --delivery-stream-name "${BILLING_FIREHOSE_NAME}" \
-  --query 'DeliveryStreamDescription.VersionId' --output text)
-
-S3CONF_LOGS=$(cat <<EOF
-{"RoleARN":"${ROLE_ARN}",
- "BucketARN":"arn:aws:s3:::${BILLING_S3_BUCKET}",
- "Prefix":"${BILLING_S3_PREFIX}",
- "ErrorOutputPrefix":"${BILLING_S3_ERROR_PREFIX}",
- "BufferingHints":{"IntervalInSeconds":60,"SizeInMBs":1},
- "CompressionFormat":"GZIP",
- "CloudWatchLoggingOptions":{"Enabled":true,"LogGroupName":"/aws/kinesisfirehose/${BILLING_FIREHOSE_NAME}","LogStreamName":"S3Delivery"}}
-EOF
-)
-
-aws firehose update-destination \
-  --delivery-stream-name "${BILLING_FIREHOSE_NAME}" \
-  --current-delivery-stream-version-id "${VER_ID}" \
-  --destination-id "${DEST_ID}" \
-  --s3-destination-update "${S3CONF_LOGS}" >/dev/null || echo "[WARN] Firehose CloudWatch Logs enable failed."
 
 FIREHOSE_ARN="arn:aws:firehose:${AWS_REGION}:${ACCOUNT_ID}:deliverystream/${BILLING_FIREHOSE_NAME}"
 
@@ -188,7 +163,7 @@ EOF
 aws logs put-resource-policy --policy-name "FirehoseSubscriptionPolicy" \
   --policy-document "${POLICY_DOC}" >/dev/null || true
 
-echo "[6] Create role and policy for Logs → Firehose subscription"
+echo "[6] Create role/policy for Logs → Firehose subscription (with propagation wait)"
 LOGS_TO_FH_ROLE="${BILLING_FIREHOSE_NAME}-logs-to-fh-role"
 ASSUME_LOGS_JSON=$(cat <<EOF
 {
@@ -200,10 +175,7 @@ EOF
 if ! aws iam get-role --role-name "$LOGS_TO_FH_ROLE" >/dev/null 2>&1; then
   aws iam create-role --role-name "$LOGS_TO_FH_ROLE" --assume-role-policy-document "$ASSUME_LOGS_JSON" >/dev/null
 else
-  # 신뢰정책 재적용으로 확실히 고정
-  aws iam update-assume-role-policy \
-    --role-name "$LOGS_TO_FH_ROLE" \
-    --policy-document "$ASSUME_LOGS_JSON" >/dev/null
+  aws iam update-assume-role-policy --role-name "$LOGS_TO_FH_ROLE" --policy-document "$ASSUME_LOGS_JSON" >/dev/null
 fi
 
 LOGS_TO_FH_POLICY="${BILLING_FIREHOSE_NAME}-logs-to-fh-policy"
@@ -238,7 +210,7 @@ if [[ -n "${EXISTING}" && "${EXISTING}" != "None" ]]; then
   done
 fi
 
-echo "[6.2] Create subscription filter to Firehose with small retry"
+echo "[6.2] Create subscription filter with retries"
 set +e
 for attempt in 1 2 3 4 5; do
   aws logs put-subscription-filter \
@@ -256,17 +228,16 @@ if [[ "${ok:-0}" != "1" ]]; then
   exit 1
 fi
 
-echo "[7] Enable API Gateway Access Logging to the log group (HTTP API)"
+echo "[7] Enable API Gateway Access Logging to the log group"
 API_ID=$(aws apigatewayv2 get-apis --query "Items[?Name=='${DDN_APIGW_NAME}'].ApiId" --output text)
 if [[ -z "${API_ID}" || "${API_ID}" == "None" ]]; then
   echo "[WARN] API Gateway not found. Run your API create script first."
-  echo "[DONE] Billing pipeline upsert complete with warnings."
+  echo "[DONE] Pipeline upsert complete with warnings."
   exit 0
 fi
 
 STAGE_NAME="${DDN_APIGW_STAGE_NAME:-\$default}"
 
-# jq 필요
 ACCESS_JSON=$(jq -n \
   --arg dest "arn:aws:logs:${AWS_REGION}:${ACCOUNT_ID}:log-group:${BILLING_LOG_GROUP}" \
   --arg fmt  "${BILLING_LOG_FORMAT}" \
@@ -278,5 +249,5 @@ aws apigatewayv2 update-stage \
   --access-log-settings "${ACCESS_JSON}" \
   --auto-deploy >/dev/null
 
-echo "[OK] API access logging configured → ${BILLING_LOG_GROUP}"
-echo "[DONE] Billing pipeline upsert complete."
+echo "[OK] API access logging → ${BILLING_LOG_GROUP}"
+echo "[DONE] Pipeline upsert complete."
