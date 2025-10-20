@@ -21,7 +21,7 @@ CREATE EXTERNAL TABLE IF NOT EXISTS ${BILLING_GLUE_DB}.${BILLING_TABLE_JSON}(
   ip string,
   user string,
   sub string,
-  requestTime timestamp,
+  requestTime bigint,
   httpMethod string,
   resourcePath string,
   status string,
