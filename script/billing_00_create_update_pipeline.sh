@@ -123,8 +123,20 @@ cat > /tmp/bucket-policy.json <<JSON
   ]
 }
 JSON
-aws s3api put-bucket-policy --bucket "${BILLING_S3_BUCKET}" --policy file:///tmp/bucket-policy.json >/dev/null || true
 
+# 전파 지연 대비 재시도(최대 6회, 5초 간격)
+ok=0
+for i in {1..6}; do
+  aws s3api put-bucket-policy \
+    --bucket "${BILLING_S3_BUCKET}" \
+    --policy file:///tmp/bucket-policy.json && ok=1 && break
+  echo "[WARN] put-bucket-policy retry $i (role propagation delay?)"; sleep 5
+done
+if [[ $ok -ne 1 ]]; then
+  echo "[ERROR] put-bucket-policy failed. Does the role exist and match the ARN?"
+  aws iam get-role --role-name "${BILLING_FIREHOSE_NAME}-role" --query 'Role.Arn' --output text || true
+  exit 1
+fi
 
 # === Firehose delivery stream =================================================
 echo "[3.0] Ensure Firehose logging log group exists"
