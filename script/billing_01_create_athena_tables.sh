@@ -23,16 +23,18 @@ CREATE EXTERNAL TABLE IF NOT EXISTS ${BILLING_GLUE_DB}.${BILLING_TABLE_JSON}(
   sub string,
   requestTime bigint,
   httpMethod string,
-  resourcePath string,
+  path string,
+  routeKey string,
   status string,
   protocol string,
   responseLength bigint
 )
 PARTITIONED BY (year int, month int, day int, hour int)
 ROW FORMAT SERDE 'org.openx.data.jsonserde.JsonSerDe'
+WITH SERDEPROPERTIES ('ignore.malformed.json'='true')
 STORED AS INPUTFORMAT 'org.apache.hadoop.mapred.TextInputFormat'
 OUTPUTFORMAT 'org.apache.hadoop.hive.ql.io.IgnoreKeyTextOutputFormat'
-LOCATION '${S3_JSON_PREFIX}';
+LOCATION 's3://${BILLING_S3_BUCKET}/json-data';
 EOF
 )
 
@@ -58,14 +60,14 @@ WITH (
   parquet_compression = 'SNAPPY',
   partitioned_by = ARRAY['year','month','day']
 ) AS
-SELECT user, sub, httpMethod, resourcePath, status,
+SELECT user, sub, httpMethod, path, status,
        date_format(from_unixtime(requestTime/1000), '%Y-%m-%d') AS req_date,
        year(from_unixtime(requestTime/1000))  AS year,
        month(from_unixtime(requestTime/1000)) AS month,
        day(from_unixtime(requestTime/1000))   AS day,
        count(*) AS calls, sum(responseLength) AS total_bytes
 FROM ${SRC_DB}.${SRC_TBL}
-GROUP BY user, sub, httpMethod, resourcePath, status,
+GROUP BY user, sub, httpMethod, path, status,
          date_format(from_unixtime(requestTime/1000), '%Y-%m-%d'),
          year(from_unixtime(requestTime/1000)),
          month(from_unixtime(requestTime/1000)),
