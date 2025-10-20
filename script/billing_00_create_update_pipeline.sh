@@ -240,23 +240,15 @@ if [[ -z "${API_ID}" || "${API_ID}" == "None" ]]; then
   exit 0
 fi
 
-# Handle literal $default
+# $default 스테이지 리터럴 유지
 STAGE_NAME="${DDN_APIGW_STAGE_NAME:-\$default}"
 
-# Format string may contain quotes and $context. Escape $ to avoid shell/cli expansion.
-FMT="${BILLING_LOG_FORMAT}"
-# If .env wrapped with single quotes, strip them
-if [[ "${FMT}" == \'*\' ]]; then FMT="${FMT:1:-1}"; fi
-
-# 1) $context 가 쉘에서 풀리지 않도록 escape
-FMT_ESC=$(printf '%s' "$BILLING_LOG_FORMAT" \
-  | sed -e 's/\\/\\\\/g' -e 's/"/\\"/g' -e 's/\$/\\$/g')
-
-# 2) 구조형 인자를 JSON으로 전달
-ACCESS_JSON="{\"DestinationArn\":\"arn:aws:logs:${AWS_REGION}:${ACCOUNT_ID}:log-group:${BILLING_LOG_GROUP}\",\"Format\":\"${FMT_ESC}\"}"
-
-# 3) stage 이름이 $default 라면 리터럴로 넘기기
-STAGE_NAME="${DDN_APIGW_STAGE_NAME:-\$default}"
+# .env의 BILLING_LOG_FORMAT을 그대로 받아서(작은따옴표 권장) JSON 객체로 감싸 전달
+# CloudShell에 jq 기본 설치됨. 없으면: sudo yum -y install jq
+ACCESS_JSON=$(jq -n \
+  --arg dest "arn:aws:logs:${AWS_REGION}:${ACCOUNT_ID}:log-group:${BILLING_LOG_GROUP}" \
+  --arg fmt  "${BILLING_LOG_FORMAT}" \
+  '{DestinationArn:$dest, Format:$fmt}')
 
 aws apigatewayv2 update-stage \
   --api-id "${API_ID}" \
