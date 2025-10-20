@@ -145,14 +145,15 @@ echo "[3.0] Ensure Firehose logging log group exists"
 aws logs create-log-group --log-group-name "/aws/kinesisfirehose/${BILLING_FIREHOSE_NAME}" 2>/dev/null || true
 aws logs put-retention-policy --log-group-name "/aws/kinesisfirehose/${BILLING_FIREHOSE_NAME}" --retention-in-days 14 >/dev/null || true
 
-echo "[3] Create or update Firehose delivery stream → S3 (fast buffering)"
+echo "[3] Create or update Firehose delivery stream → S3 (fast buffering, NO compression)"
+echo "  [NOTE] CloudWatch Logs subscription filter already compresses data, so we use UNCOMPRESSED"
 S3CONF=$(cat <<EOF
 {"RoleARN":"${ROLE_ARN}",
  "BucketARN":"arn:aws:s3:::${BILLING_S3_BUCKET}",
  "Prefix":"${BILLING_S3_PREFIX}",
  "ErrorOutputPrefix":"${BILLING_S3_ERROR_PREFIX}",
  "BufferingHints":{"IntervalInSeconds":60,"SizeInMBs":1},
- "CompressionFormat":"GZIP",
+ "CompressionFormat":"UNCOMPRESSED",
  "CloudWatchLoggingOptions":{"Enabled":true,"LogGroupName":"/aws/kinesisfirehose/${BILLING_FIREHOSE_NAME}","LogStreamName":"S3Delivery"}}
 EOF
 )

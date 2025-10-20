@@ -3,6 +3,41 @@ set -euo pipefail
 source .env
 aws configure set region "${AWS_REGION}"
 
+# Helper function to wait for Athena query completion
+wait_for_query() {
+  local qid="$1"
+  local desc="${2:-Query}"
+  echo "  → Waiting for ${desc} to complete (query_id: ${qid})..."
+
+  for i in {1..60}; do
+    STATUS=$(aws athena get-query-execution --query-execution-id "${qid}" \
+      --query 'QueryExecution.Status.State' --output text 2>/dev/null || echo "UNKNOWN")
+
+    case "${STATUS}" in
+      SUCCEEDED)
+        echo "  ✓ ${desc} completed successfully"
+        return 0
+        ;;
+      FAILED|CANCELLED)
+        echo "  ✗ ${desc} failed with status: ${STATUS}"
+        aws athena get-query-execution --query-execution-id "${qid}" \
+          --query 'QueryExecution.Status.StateChangeReason' --output text 2>/dev/null || true
+        return 1
+        ;;
+      QUEUED|RUNNING)
+        sleep 2
+        ;;
+      *)
+        echo "  ? Unknown status: ${STATUS}"
+        sleep 2
+        ;;
+    esac
+  done
+
+  echo "  ✗ ${desc} timed out after 120 seconds"
+  return 1
+}
+
 echo "[1] Create/ensure Athena workgroup"
 aws athena get-work-group --work-group "${BILLING_ATHENA_WORKGROUP}" >/dev/null 2>&1 || \
 aws athena create-work-group --name "${BILLING_ATHENA_WORKGROUP}" \
@@ -60,24 +95,33 @@ CROSS JOIN UNNEST(raw.logEvents) AS t(log);
 EOF
 )
 
-aws athena start-query-execution \
+echo "[3.0] Create database"
+QID=$(aws athena start-query-execution \
   --query-string "CREATE DATABASE IF NOT EXISTS ${BILLING_GLUE_DB};" \
-  --work-group "${BILLING_ATHENA_WORKGROUP}" >/dev/null
+  --work-group "${BILLING_ATHENA_WORKGROUP}" \
+  --query 'QueryExecutionId' --output text)
+wait_for_query "${QID}" "Create database"
 
 echo "[3.1] Create raw table"
-aws athena start-query-execution \
+QID=$(aws athena start-query-execution \
   --query-string "${SQL_CREATE_RAW_TABLE}" \
-  --work-group "${BILLING_ATHENA_WORKGROUP}" >/dev/null
+  --work-group "${BILLING_ATHENA_WORKGROUP}" \
+  --query 'QueryExecutionId' --output text)
+wait_for_query "${QID}" "Create raw table"
 
 echo "[3.2] Create view for parsed logs"
-aws athena start-query-execution \
+QID=$(aws athena start-query-execution \
   --query-string "${SQL_CREATE_JSON_VIEW}" \
-  --work-group "${BILLING_ATHENA_WORKGROUP}" >/dev/null
+  --work-group "${BILLING_ATHENA_WORKGROUP}" \
+  --query 'QueryExecutionId' --output text)
+wait_for_query "${QID}" "Create view"
 
 echo "[4] MSCK REPAIR to load partitions"
-aws athena start-query-execution \
+QID=$(aws athena start-query-execution \
   --query-string "MSCK REPAIR TABLE ${BILLING_GLUE_DB}.${BILLING_TABLE_JSON}_raw;" \
-  --work-group "${BILLING_ATHENA_WORKGROUP}" >/dev/null
+  --work-group "${BILLING_ATHENA_WORKGROUP}" \
+  --query 'QueryExecutionId' --output text)
+wait_for_query "${QID}" "MSCK REPAIR"
 
 echo "[5] (Optional) Parquet daily aggregation CTAS (includes routeKey)"
 PARQUET_LOC="s3://${BILLING_S3_BUCKET}/${BILLING_PARQUET_PREFIX}"
@@ -108,8 +152,19 @@ SQL_CREATE_PARQUET="${SQL_CREATE_PARQUET//\$\{TBL\}/${BILLING_TABLE_PARQUET}}"
 SQL_CREATE_PARQUET="${SQL_CREATE_PARQUET//\$\{SRC_DB\}/${BILLING_GLUE_DB}}"
 SQL_CREATE_PARQUET="${SQL_CREATE_PARQUET//\$\{SRC_TBL\}/${BILLING_TABLE_JSON}}"
 
-aws athena start-query-execution \
+echo "[5.1] Create Parquet aggregation table (CTAS)"
+QID=$(aws athena start-query-execution \
   --query-string "${SQL_CREATE_PARQUET}" \
-  --work-group "${BILLING_ATHENA_WORKGROUP}" >/dev/null
+  --work-group "${BILLING_ATHENA_WORKGROUP}" \
+  --query 'QueryExecutionId' --output text)
+wait_for_query "${QID}" "Create Parquet table" || echo "  [WARN] Parquet table creation failed (may need data first)"
 
-echo "[OK] Athena ready → ${BILLING_TABLE_JSON}, ${BILLING_TABLE_PARQUET}"
+echo ""
+echo "[OK] Athena setup complete!"
+echo "  → Raw table: ${BILLING_GLUE_DB}.${BILLING_TABLE_JSON}_raw"
+echo "  → View: ${BILLING_GLUE_DB}.${BILLING_TABLE_JSON}"
+echo "  → Parquet table: ${BILLING_GLUE_DB}.${BILLING_TABLE_PARQUET}"
+echo ""
+echo "Test queries:"
+echo "  SELECT * FROM ${BILLING_GLUE_DB}.${BILLING_TABLE_JSON}_raw LIMIT 5;"
+echo "  SELECT * FROM ${BILLING_GLUE_DB}.${BILLING_TABLE_JSON} LIMIT 5;"

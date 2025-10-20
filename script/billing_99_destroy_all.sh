@@ -97,16 +97,28 @@ aws iam delete-policy --policy-arn "arn:aws:iam::${ACCOUNT_ID}:policy/${LOGS_TO_
 aws iam delete-role --role-name "${LOGS_TO_FH_ROLE}" >/dev/null 2>&1 || true
 
 echo "[D5] Drop Athena table(s) & workgroup"
-# 지금 버전만 유지: 단일 JSON 테이블/Parquet 집계 테이블만 드롭
+# 올바른 순서: Parquet -> View -> Raw 테이블 순으로 삭제
+echo "  [D5.1] Drop Parquet table"
 aws athena start-query-execution --work-group "${BILLING_ATHENA_WORKGROUP}" \
   --query-string "DROP TABLE IF EXISTS ${BILLING_GLUE_DB}.${BILLING_TABLE_PARQUET};" >/dev/null 2>&1 || true
+sleep 2
+
+echo "  [D5.2] Drop VIEW (not table)"
 aws athena start-query-execution --work-group "${BILLING_ATHENA_WORKGROUP}" \
-  --query-string "DROP TABLE IF EXISTS ${BILLING_GLUE_DB}.${BILLING_TABLE_JSON};" >/dev/null 2>&1 || true
+  --query-string "DROP VIEW IF EXISTS ${BILLING_GLUE_DB}.${BILLING_TABLE_JSON};" >/dev/null 2>&1 || true
+sleep 2
+
+echo "  [D5.3] Drop raw table"
+aws athena start-query-execution --work-group "${BILLING_ATHENA_WORKGROUP}" \
+  --query-string "DROP TABLE IF EXISTS ${BILLING_GLUE_DB}.${BILLING_TABLE_JSON}_raw;" >/dev/null 2>&1 || true
+sleep 2
 
 # Glue DB 삭제(남은 테이블 없으면 성공)
+echo "  [D5.4] Delete Glue database"
 aws glue delete-database --name "${BILLING_GLUE_DB}" >/dev/null 2>&1 || true
 
 # 워크그룹 삭제
+echo "  [D5.5] Delete Athena workgroup"
 aws athena delete-work-group --work-group "${BILLING_ATHENA_WORKGROUP}" --recursive-delete-option >/dev/null 2>&1 || true
 
 echo "[D6] Empty & delete S3 bucket (logs + athena results)"
