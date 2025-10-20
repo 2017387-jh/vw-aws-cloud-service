@@ -38,12 +38,11 @@ fi
 aws logs delete-resource-policy --policy-name "FirehoseSubscriptionPolicy" >/dev/null 2>&1 || true
 
 echo "[D3] Delete Firehose stream (explicit, no error swallowing)"
-# 1) 존재 확인
 if aws firehose describe-delivery-stream \
      --delivery-stream-name "${BILLING_FIREHOSE_NAME}" \
      --region "${AWS_REGION}" >/dev/null 2>&1; then
 
-  # 2) 상태가 ACTIVE 될 때까지 대기(업데이트 중이면 삭제가 바로 실패함)
+  # ACTIVE 될 때까지 잠깐 대기 (업데이트 중이면 삭제 실패 방지)
   for i in {1..24}; do
     STATUS=$(aws firehose describe-delivery-stream \
       --delivery-stream-name "${BILLING_FIREHOSE_NAME}" \
@@ -53,13 +52,13 @@ if aws firehose describe-delivery-stream \
     echo "  - wait status=$STATUS (retry $i)"; sleep 5
   done
 
-  # 3) 삭제 실행(에러 숨기지 않음)
+  # 🔧 여기! --allow-force-delete 플래그는 값 없이 사용
   aws firehose delete-delivery-stream \
     --delivery-stream-name "${BILLING_FIREHOSE_NAME}" \
-    --allow-force-delete true \
+    --allow-force-delete \
     --region "${AWS_REGION}"
 
-  # 4) 실제로 사라질 때까지 폴링
+  # 삭제 완료 확인
   for i in {1..30}; do
     if ! aws firehose describe-delivery-stream \
           --delivery-stream-name "${BILLING_FIREHOSE_NAME}" \
@@ -70,7 +69,7 @@ if aws firehose describe-delivery-stream \
     echo "  - still deleting... (retry $i)"; sleep 5
   done
 
-  # 5) 아직 남아있으면 원인 출력
+  # 아직 남아있으면 상태 출력
   if aws firehose describe-delivery-stream \
        --delivery-stream-name "${BILLING_FIREHOSE_NAME}" \
        --region "${AWS_REGION}" >/dev/null 2>&1; then
