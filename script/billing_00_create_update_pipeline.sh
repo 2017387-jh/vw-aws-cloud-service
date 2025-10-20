@@ -49,7 +49,7 @@ fi
 echo "[2] Ensure IAM role for Firehose"
 POLICY_NAME="${BILLING_FIREHOSE_NAME}-policy"
 
-read -r -d '' ASSUME_JSON <<'EOF'
+ASSUME_JSON=$(cat <<'EOF'
 {
   "Version":"2012-10-17",
   "Statement":[
@@ -57,12 +57,13 @@ read -r -d '' ASSUME_JSON <<'EOF'
   ]
 }
 EOF
+)
 
 if ! aws iam get-role --role-name "$ROLE_NAME" >/dev/null 2>&1; then
   aws iam create-role --role-name "$ROLE_NAME" --assume-role-policy-document "$ASSUME_JSON" >/dev/null
 fi
 
-read -r -d '' POLICY_JSON <<EOF
+POLICY_JSON=$(cat <<EOF
 {
   "Version":"2012-10-17",
   "Statement":[
@@ -88,6 +89,7 @@ read -r -d '' POLICY_JSON <<EOF
   ]
 }
 EOF
+)
 
 if ! aws iam get-policy --policy-arn "arn:aws:iam::${ACCOUNT_ID}:policy/${POLICY_NAME}" >/dev/null 2>&1; then
   aws iam create-policy --policy-name "${POLICY_NAME}" --policy-document "$POLICY_JSON" >/dev/null || true
@@ -144,7 +146,7 @@ aws logs create-log-group --log-group-name "/aws/kinesisfirehose/${BILLING_FIREH
 aws logs put-retention-policy --log-group-name "/aws/kinesisfirehose/${BILLING_FIREHOSE_NAME}" --retention-in-days 14 >/dev/null || true
 
 echo "[3] Create or update Firehose delivery stream → S3 (fast buffering)"
-read -r -d '' S3CONF <<EOF
+S3CONF=$(cat <<EOF
 {"RoleARN":"${ROLE_ARN}",
  "BucketARN":"arn:aws:s3:::${BILLING_S3_BUCKET}",
  "Prefix":"${BILLING_S3_PREFIX}",
@@ -153,6 +155,7 @@ read -r -d '' S3CONF <<EOF
  "CompressionFormat":"GZIP",
  "CloudWatchLoggingOptions":{"Enabled":true,"LogGroupName":"/aws/kinesisfirehose/${BILLING_FIREHOSE_NAME}","LogStreamName":"S3Delivery"}}
 EOF
+)
 
 EXISTS=$(aws firehose list-delivery-streams --query "DeliveryStreamNames[?@=='${BILLING_FIREHOSE_NAME}']" --output text)
 if [[ -z "${EXISTS}" ]]; then
@@ -196,7 +199,7 @@ aws logs put-retention-policy --log-group-name "${BILLING_LOG_GROUP}" --retentio
 
 # === Optional resource policy =================================================
 echo "[5] Put resource policy (optional)"
-read -r -d '' POLICY_DOC <<EOF
+POLICY_DOC=$(cat <<EOF
 {
   "Version":"2012-10-17",
   "Statement":[
@@ -210,18 +213,20 @@ read -r -d '' POLICY_DOC <<EOF
   ]
 }
 EOF
+)
 aws logs put-resource-policy --policy-name "FirehoseSubscriptionPolicy" \
   --policy-document "${POLICY_DOC}" >/dev/null || true
 
 # === Role/policy for Logs → Firehose subscription ============================
 echo "[6] Create role/policy for Logs → Firehose subscription (with propagation wait)"
 LOGS_TO_FH_ROLE="${BILLING_FIREHOSE_NAME}-logs-to-fh-role"
-read -r -d '' ASSUME_LOGS_JSON <<EOF
+ASSUME_LOGS_JSON=$(cat <<EOF
 {
  "Version":"2012-10-17",
  "Statement":[{"Effect":"Allow","Principal":{"Service":"logs.${AWS_REGION}.amazonaws.com"},"Action":"sts:AssumeRole"}]
 }
 EOF
+)
 
 if ! aws iam get-role --role-name "$LOGS_TO_FH_ROLE" >/dev/null 2>&1; then
   aws iam create-role --role-name "$LOGS_TO_FH_ROLE" --assume-role-policy-document "$ASSUME_LOGS_JSON" >/dev/null
@@ -230,7 +235,7 @@ else
 fi
 
 LOGS_TO_FH_POLICY="${BILLING_FIREHOSE_NAME}-logs-to-fh-policy"
-read -r -d '' LOGS_TO_FH_POLICY_DOC <<EOF
+LOGS_TO_FH_POLICY_DOC=$(cat <<EOF
 {
  "Version":"2012-10-17",
  "Statement":[
@@ -238,6 +243,7 @@ read -r -d '' LOGS_TO_FH_POLICY_DOC <<EOF
  ]
 }
 EOF
+)
 
 if ! aws iam get-policy --policy-arn "arn:aws:iam::${ACCOUNT_ID}:policy/${LOGS_TO_FH_POLICY}" >/dev/null 2>&1; then
   aws iam create-policy --policy-name "${LOGS_TO_FH_POLICY}" --policy-document "$LOGS_TO_FH_POLICY_DOC" >/dev/null || true

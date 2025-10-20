@@ -51,7 +51,7 @@ aws athena start-query-execution \
 
 echo "[5] (Optional) Parquet daily aggregation CTAS (includes routeKey)"
 PARQUET_LOC="s3://${BILLING_S3_BUCKET}/${BILLING_PARQUET_PREFIX}"
-SQL_CREATE_PARQUET=$(cat <<'EOF'
+SQL_CREATE_PARQUET_TEMPLATE=$(cat <<'EOF'
 CREATE TABLE IF NOT EXISTS ${DB}.${TBL}
 WITH (
   format = 'PARQUET',
@@ -72,6 +72,7 @@ GROUP BY user, sub, httpMethod, path, routeKey, status,
          day(from_unixtime(requestTime/1000));
 EOF
 )
+SQL_CREATE_PARQUET="${SQL_CREATE_PARQUET_TEMPLATE}"
 SQL_CREATE_PARQUET="${SQL_CREATE_PARQUET//\$\{DB\}/${BILLING_GLUE_DB}}"
 SQL_CREATE_PARQUET="${SQL_CREATE_PARQUET//\$\{TBL\}/${BILLING_TABLE_PARQUET}}"
 SQL_CREATE_PARQUET="${SQL_CREATE_PARQUET//\$\{SRC_DB\}/${BILLING_GLUE_DB}}"
