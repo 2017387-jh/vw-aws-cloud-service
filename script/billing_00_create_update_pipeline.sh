@@ -44,29 +44,6 @@ else
     --create-bucket-configuration "LocationConstraint=${AWS_REGION}" >/dev/null
 fi
 
-echo "[1.1] Ensure bucket policy allows Firehose role to PutObject"
-cat > /tmp/bucket-policy.json <<JSON
-{
-  "Version":"2012-10-17",
-  "Statement":[
-    {
-      "Sid":"AllowFirehosePutToJsonData",
-      "Effect":"Allow",
-      "Principal":{"AWS":"arn:aws:iam::${ACCOUNT_ID}:role/${BILLING_FIREHOSE_NAME}-role"},
-      "Action":["s3:PutObject","s3:PutObjectAcl"],
-      "Resource":"arn:aws:s3:::${BILLING_S3_BUCKET}/json-data/*"
-    },
-    {
-      "Sid":"AllowFirehosePutToError",
-      "Effect":"Allow",
-      "Principal":{"AWS":"arn:aws:iam::${ACCOUNT_ID}:role/${BILLING_FIREHOSE_NAME}-role"},
-      "Action":["s3:PutObject","s3:PutObjectAcl"],
-      "Resource":"arn:aws:s3:::${BILLING_S3_BUCKET}/${BILLING_S3_ERROR_PREFIX%%/*}/*"
-    }
-  ]
-}
-JSON
-aws s3api put-bucket-policy --bucket "${BILLING_S3_BUCKET}" --policy file:///tmp/bucket-policy.json >/dev/null || true
 
 # === IAM role for Firehose ====================================================
 echo "[2] Ensure IAM role for Firehose"
@@ -123,6 +100,31 @@ aws iam attach-role-policy \
 aws iam wait role-exists --role-name "$ROLE_NAME" >/dev/null 2>&1 || true
 sleep 8
 ROLE_ARN=$(aws iam get-role --role-name "$ROLE_NAME" --query 'Role.Arn' --output text)
+
+echo "[2.1] Ensure bucket policy allows Firehose role to PutObject"
+cat > /tmp/bucket-policy.json <<JSON
+{
+  "Version":"2012-10-17",
+  "Statement":[
+    {
+      "Sid":"AllowFirehosePutToJsonData",
+      "Effect":"Allow",
+      "Principal":{"AWS":"arn:aws:iam::${ACCOUNT_ID}:role/${BILLING_FIREHOSE_NAME}-role"},
+      "Action":["s3:PutObject","s3:PutObjectAcl"],
+      "Resource":"arn:aws:s3:::${BILLING_S3_BUCKET}/json-data/*"
+    },
+    {
+      "Sid":"AllowFirehosePutToError",
+      "Effect":"Allow",
+      "Principal":{"AWS":"arn:aws:iam::${ACCOUNT_ID}:role/${BILLING_FIREHOSE_NAME}-role"},
+      "Action":["s3:PutObject","s3:PutObjectAcl"],
+      "Resource":"arn:aws:s3:::${BILLING_S3_BUCKET}/${BILLING_S3_ERROR_PREFIX%%/*}/*"
+    }
+  ]
+}
+JSON
+aws s3api put-bucket-policy --bucket "${BILLING_S3_BUCKET}" --policy file:///tmp/bucket-policy.json >/dev/null || true
+
 
 # === Firehose delivery stream =================================================
 echo "[3.0] Ensure Firehose logging log group exists"
