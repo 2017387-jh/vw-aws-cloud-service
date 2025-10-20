@@ -37,10 +37,54 @@ if aws logs describe-log-groups --log-group-name-prefix "${BILLING_LOG_GROUP}" \
 fi
 aws logs delete-resource-policy --policy-name "FirehoseSubscriptionPolicy" >/dev/null 2>&1 || true
 
-echo "[D3] Delete Firehose stream"
-aws firehose delete-delivery-stream \
-  --delivery-stream-name "${BILLING_FIREHOSE_NAME}" \
-  --allow-force-delete true >/dev/null 2>&1 || true
+echo "[D3] Delete Firehose stream (explicit, no error swallowing)"
+# 1) 존재 확인
+if aws firehose describe-delivery-stream \
+     --delivery-stream-name "${BILLING_FIREHOSE_NAME}" \
+     --region "${AWS_REGION}" >/dev/null 2>&1; then
+
+  # 2) 상태가 ACTIVE 될 때까지 대기(업데이트 중이면 삭제가 바로 실패함)
+  for i in {1..24}; do
+    STATUS=$(aws firehose describe-delivery-stream \
+      --delivery-stream-name "${BILLING_FIREHOSE_NAME}" \
+      --region "${AWS_REGION}" \
+      --query 'DeliveryStreamDescription.DeliveryStreamStatus' --output text 2>/dev/null || echo "NOTFOUND")
+    [[ "$STATUS" == "ACTIVE" || "$STATUS" == "NOTFOUND" ]] && break
+    echo "  - wait status=$STATUS (retry $i)"; sleep 5
+  done
+
+  # 3) 삭제 실행(에러 숨기지 않음)
+  aws firehose delete-delivery-stream \
+    --delivery-stream-name "${BILLING_FIREHOSE_NAME}" \
+    --allow-force-delete true \
+    --region "${AWS_REGION}"
+
+  # 4) 실제로 사라질 때까지 폴링
+  for i in {1..30}; do
+    if ! aws firehose describe-delivery-stream \
+          --delivery-stream-name "${BILLING_FIREHOSE_NAME}" \
+          --region "${AWS_REGION}" >/dev/null 2>&1; then
+      echo "  - delivery stream deleted."
+      break
+    fi
+    echo "  - still deleting... (retry $i)"; sleep 5
+  done
+
+  # 5) 아직 남아있으면 원인 출력
+  if aws firehose describe-delivery-stream \
+       --delivery-stream-name "${BILLING_FIREHOSE_NAME}" \
+       --region "${AWS_REGION}" >/dev/null 2>&1; then
+    echo "[WARN] Stream still exists. Current status:"
+    aws firehose describe-delivery-stream \
+      --delivery-stream-name "${BILLING_FIREHOSE_NAME}" \
+      --region "${AWS_REGION}" \
+      --query 'DeliveryStreamDescription.{Status:DeliveryStreamStatus,Dest:Destinations[0].S3DestinationDescription.BucketARN,Role:Destinations[0].S3DestinationDescription.RoleARN}' \
+      --output table
+    exit 1
+  fi
+else
+  echo "  - stream not found (already deleted)."
+fi
 
 echo "[D4] Delete IAM roles/policies"
 aws iam detach-role-policy --role-name "${FIREHOSE_ROLE}" \
