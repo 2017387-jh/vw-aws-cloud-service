@@ -155,7 +155,7 @@ EXT_S3CONF=$(cat <<EOF
  "BufferingHints":{"IntervalInSeconds":60,"SizeInMBs":1},
  "CompressionFormat":"UNCOMPRESSED",
  "CloudWatchLoggingOptions":{"Enabled":true,"LogGroupName":"/aws/kinesisfirehose/${BILLING_FIREHOSE_NAME}","LogStreamName":"S3Delivery"},
- "ProcessingConfiguration":{"Enabled":true,"Processors":[{"Type":"RecordDeAggregation","Parameters":[{"ParameterName":"SubRecordType","ParameterValue":"JSON"}]},{"Type":"AppendDelimiterToRecord","Parameters":[]}]}}
+ "ProcessingConfiguration":{"Enabled":true,"Processors":[{"Type":"AppendDelimiterToRecord","Parameters":[]}]}}
 EOF
 )
 
