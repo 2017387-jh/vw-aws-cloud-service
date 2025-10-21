@@ -48,8 +48,8 @@ aws glue get-database --name "${BILLING_GLUE_DB}" >/dev/null 2>&1 || \
 aws glue create-database --database-input "Name=${BILLING_GLUE_DB}" >/dev/null
 
 echo "[3] Create EXTERNAL JSON table for CloudWatch Logs format"
-# CloudWatch Logs subscription filter automatically sends GZIP-compressed data
-# Athena can read GZIP files automatically without special configuration
+# Firehose now adds newline delimiter between records
+# Each line is a separate JSON object from CloudWatch Logs subscription filter
 SQL_CREATE_RAW_TABLE=$(cat <<EOF
 CREATE EXTERNAL TABLE IF NOT EXISTS ${BILLING_GLUE_DB}.${BILLING_TABLE_JSON}_raw(
   messageType string,
