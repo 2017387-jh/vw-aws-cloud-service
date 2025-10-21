@@ -146,15 +146,16 @@ aws logs create-log-group --log-group-name "/aws/kinesisfirehose/${BILLING_FIREH
 aws logs put-retention-policy --log-group-name "/aws/kinesisfirehose/${BILLING_FIREHOSE_NAME}" --retention-in-days 14 >/dev/null || true
 
 echo "[3] Create or update Firehose delivery stream → S3 (fast buffering, with newline delimiter)"
-S3CONF=$(cat <<EOF
+# Use ExtendedS3DestinationConfiguration for ProcessingConfiguration support
+EXT_S3CONF=$(cat <<EOF
 {"RoleARN":"${ROLE_ARN}",
  "BucketARN":"arn:aws:s3:::${BILLING_S3_BUCKET}",
  "Prefix":"${BILLING_S3_PREFIX}",
  "ErrorOutputPrefix":"${BILLING_S3_ERROR_PREFIX}",
  "BufferingHints":{"IntervalInSeconds":60,"SizeInMBs":1},
  "CompressionFormat":"GZIP",
- "ProcessingConfiguration":{"Enabled":true,"Processors":[{"Type":"AppendDelimiterToRecord","Parameters":[]}]},
- "CloudWatchLoggingOptions":{"Enabled":true,"LogGroupName":"/aws/kinesisfirehose/${BILLING_FIREHOSE_NAME}","LogStreamName":"S3Delivery"}}
+ "CloudWatchLoggingOptions":{"Enabled":true,"LogGroupName":"/aws/kinesisfirehose/${BILLING_FIREHOSE_NAME}","LogStreamName":"S3Delivery"},
+ "ProcessingConfiguration":{"Enabled":true,"Processors":[{"Type":"AppendDelimiterToRecord","Parameters":[]}]}}
 EOF
 )
 
@@ -163,7 +164,7 @@ if [[ -z "${EXISTS}" ]]; then
   aws firehose create-delivery-stream \
     --delivery-stream-name "${BILLING_FIREHOSE_NAME}" \
     --delivery-stream-type DirectPut \
-    --s3-destination-configuration "${S3CONF}" >/dev/null
+    --extended-s3-destination-configuration "${EXT_S3CONF}" >/dev/null
   echo "[OK] Firehose created: ${BILLING_FIREHOSE_NAME}"
 else
   DEST_ID=$(aws firehose describe-delivery-stream \
@@ -176,8 +177,8 @@ else
     --delivery-stream-name "${BILLING_FIREHOSE_NAME}" \
     --current-delivery-stream-version-id "${VER_ID}" \
     --destination-id "${DEST_ID}" \
-    --s3-destination-update "${S3CONF}" >/dev/null || true
-  echo "[OK] Firehose updated (fast buffering)."
+    --extended-s3-destination-update "${EXT_S3CONF}" >/dev/null || true
+  echo "[OK] Firehose updated (fast buffering with newline delimiter)."
 fi
 
 echo "[3.1] Wait until Firehose is ACTIVE"
