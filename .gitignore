@@ -14,7 +14,7 @@ __pycache__/
 .idea/
 *.iml
 *.ipr
-*.iws
+*.iwse
 .DS_Store
 
 .claude/

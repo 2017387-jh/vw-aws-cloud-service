@@ -48,7 +48,8 @@ aws glue get-database --name "${BILLING_GLUE_DB}" >/dev/null 2>&1 || \
 aws glue create-database --database-input "Name=${BILLING_GLUE_DB}" >/dev/null
 
 echo "[3] Create EXTERNAL JSON table for CloudWatch Logs format"
-# First, create a raw table for CloudWatch Logs subscription filter format
+# CloudWatch Logs subscription filter automatically sends GZIP-compressed data
+# Athena can read GZIP files automatically without special configuration
 SQL_CREATE_RAW_TABLE=$(cat <<EOF
 CREATE EXTERNAL TABLE IF NOT EXISTS ${BILLING_GLUE_DB}.${BILLING_TABLE_JSON}_raw(
   messageType string,
@@ -132,12 +133,19 @@ WITH (
   parquet_compression = 'SNAPPY',
   partitioned_by = ARRAY['year','month','day']
 ) AS
-SELECT user, sub, httpMethod, path, routeKey, status,
+SELECT
+       user,
+       sub,
+       httpMethod,
+       path,
+       routeKey,
+       status,
        date_format(from_unixtime(requestTime/1000), '%Y-%m-%d') AS req_date,
+       count(*) AS calls,
+       sum(responseLength) AS total_bytes,
        year(from_unixtime(requestTime/1000))  AS year,
        month(from_unixtime(requestTime/1000)) AS month,
-       day(from_unixtime(requestTime/1000))   AS day,
-       count(*) AS calls, sum(responseLength) AS total_bytes
+       day(from_unixtime(requestTime/1000))   AS day
 FROM ${SRC_DB}.${SRC_TBL}
 GROUP BY user, sub, httpMethod, path, routeKey, status,
          date_format(from_unixtime(requestTime/1000), '%Y-%m-%d'),
@@ -152,7 +160,19 @@ SQL_CREATE_PARQUET="${SQL_CREATE_PARQUET//\$\{TBL\}/${BILLING_TABLE_PARQUET}}"
 SQL_CREATE_PARQUET="${SQL_CREATE_PARQUET//\$\{SRC_DB\}/${BILLING_GLUE_DB}}"
 SQL_CREATE_PARQUET="${SQL_CREATE_PARQUET//\$\{SRC_TBL\}/${BILLING_TABLE_JSON}}"
 
-echo "[5.1] Create Parquet aggregation table (CTAS)"
+echo "[5.1] Drop existing Parquet table if exists"
+QID=$(aws athena start-query-execution \
+  --query-string "DROP TABLE IF EXISTS ${BILLING_GLUE_DB}.${BILLING_TABLE_PARQUET};" \
+  --work-group "${BILLING_ATHENA_WORKGROUP}" \
+  --query 'QueryExecutionId' --output text 2>/dev/null || echo "")
+if [ -n "$QID" ]; then
+  wait_for_query "${QID}" "Drop Parquet table" || true
+fi
+
+echo "[5.2] Clean up failed Parquet data location"
+aws s3 rm "s3://${BILLING_S3_BUCKET}/athena-results/tables/" --recursive >/dev/null 2>&1 || true
+
+echo "[5.3] Create Parquet aggregation table (CTAS)"
 QID=$(aws athena start-query-execution \
   --query-string "${SQL_CREATE_PARQUET}" \
   --work-group "${BILLING_ATHENA_WORKGROUP}" \

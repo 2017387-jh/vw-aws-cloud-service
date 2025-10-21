@@ -82,9 +82,11 @@ BILLING_S3_BUCKET=ddn-apigw-accesslog-bucket
 
 **설정:**
 - **BufferingHints**: 60초 또는 1MB마다 S3에 전송 (빠른 버퍼링)
-- **CompressionFormat**: `GZIP` (저장 공간 절약)
+- **CompressionFormat**: `UNCOMPRESSED` (CloudWatch Logs가 이미 GZIP 압축하므로 이중 압축 방지)
 - **Prefix**: `json-data/year=!{timestamp:yyyy}/month=!{timestamp:MM}/day=!{timestamp:dd}/hour=!{timestamp:HH}/`
 - **ErrorOutputPrefix**: `error/!{timestamp:yyyy}/!{timestamp:MM}/!{timestamp:dd}/!{timestamp:HH}/`
+
+**중요:** CloudWatch Logs subscription filter는 자동으로 GZIP 압축을 수행합니다. 따라서 Firehose에서 `UNCOMPRESSED`로 설정해도 S3에 저장되는 파일은 여전히 GZIP 압축되어 있습니다. 이는 AWS의 기본 동작이며 변경할 수 없습니다. Athena는 GZIP 파일을 자동으로 읽을 수 있습니다.
 
 **[3.0] Firehose 로깅 설정:**
 - CloudWatch Log Group 생성: `/aws/kinesisfirehose/ddn-apigw-accesslog-fh`
