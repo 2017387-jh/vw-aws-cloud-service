@@ -153,7 +153,7 @@ EXT_S3CONF=$(cat <<EOF
  "Prefix":"${BILLING_S3_PREFIX}",
  "ErrorOutputPrefix":"${BILLING_S3_ERROR_PREFIX}",
  "BufferingHints":{"IntervalInSeconds":60,"SizeInMBs":1},
- "CompressionFormat":"GZIP",
+ "CompressionFormat":"UNCOMPRESSED",
  "CloudWatchLoggingOptions":{"Enabled":true,"LogGroupName":"/aws/kinesisfirehose/${BILLING_FIREHOSE_NAME}","LogStreamName":"S3Delivery"},
  "ProcessingConfiguration":{"Enabled":true,"Processors":[{"Type":"AppendDelimiterToRecord","Parameters":[]}]}}
 EOF
