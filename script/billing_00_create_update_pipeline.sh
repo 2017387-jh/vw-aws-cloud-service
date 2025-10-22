@@ -158,12 +158,18 @@ EXT_S3CONF=$(cat <<EOF
  "ProcessingConfiguration":{
    "Enabled":true,
    "Processors":[
-     {
-       "Type":"Decompression",
-       "Parameters":[
-         {"ParameterName":"CompressionFormat","ParameterValue":"GZIP"}
-       ]
-     }
+    {
+      "Type":"Decompression",
+      "Parameters":[
+        {"ParameterName":"CompressionFormat","ParameterValue":"GZIP"}
+      ]
+    },
+    {
+      "Type": "AppendDelimiterToRecord",
+      "Parameters": [
+        { "ParameterName": "Delimiter", "ParameterValue": "\n" }
+      ]
+    }
    ]
  }}
 EOF
