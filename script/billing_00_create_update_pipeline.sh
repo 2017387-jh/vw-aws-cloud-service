@@ -165,9 +165,9 @@ EXT_S3CONF=$(cat <<EOF
       ]
     },
     {
-      "Type": "AppendDelimiterToRecord",
-      "Parameters": [
-        { "ParameterName": "Delimiter", "ParameterValue": "\n" }
+      "Type":"AppendDelimiterToRecord",
+      "Parameters":[
+        {"ParameterName":"Delimiter","ParameterValue":"\\\\n"}
       ]
     }
    ]
