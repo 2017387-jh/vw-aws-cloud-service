@@ -161,7 +161,7 @@ EXT_S3CONF=$(cat <<EOF
      {
        "Type":"Decompression",
        "Parameters":[
-         {"ParameterName":"DecompressionFormat","ParameterValue":"GZIP"}
+         {"ParameterName":"CompressionFormat","ParameterValue":"GZIP"}
        ]
      }
    ]
