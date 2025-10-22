@@ -145,7 +145,7 @@ echo "[3.0] Ensure Firehose logging log group exists"
 aws logs create-log-group --log-group-name "/aws/kinesisfirehose/${BILLING_FIREHOSE_NAME}" 2>/dev/null || true
 aws logs put-retention-policy --log-group-name "/aws/kinesisfirehose/${BILLING_FIREHOSE_NAME}" --retention-in-days 14 >/dev/null || true
 
-echo "[3] Create or update Firehose delivery stream → S3 (fast buffering, with newline delimiter)"
+echo "[3] Create or update Firehose delivery stream → S3 (decompress to PLAIN JSON)"
 # Use ExtendedS3DestinationConfiguration for ProcessingConfiguration support
 EXT_S3CONF=$(cat <<EOF
 {"RoleARN":"${ROLE_ARN}",
@@ -155,7 +155,17 @@ EXT_S3CONF=$(cat <<EOF
  "BufferingHints":{"IntervalInSeconds":60,"SizeInMBs":1},
  "CompressionFormat":"UNCOMPRESSED",
  "CloudWatchLoggingOptions":{"Enabled":true,"LogGroupName":"/aws/kinesisfirehose/${BILLING_FIREHOSE_NAME}","LogStreamName":"S3Delivery"},
- "ProcessingConfiguration":{"Enabled":true,"Processors":[{"Type":"AppendDelimiterToRecord","Parameters":[]}]}}
+ "ProcessingConfiguration":{
+   "Enabled":true,
+   "Processors":[
+     {
+       "Type":"Decompression",
+       "Parameters":[
+         {"ParameterName":"DecompressionFormat","ParameterValue":"GZIP"}
+       ]
+     }
+   ]
+ }}
 EOF
 )
 
@@ -178,7 +188,7 @@ else
     --current-delivery-stream-version-id "${VER_ID}" \
     --destination-id "${DEST_ID}" \
     --extended-s3-destination-update "${EXT_S3CONF}" >/dev/null || true
-  echo "[OK] Firehose updated (fast buffering with newline delimiter)."
+  echo "[OK] Firehose updated (decompress to PLAIN JSON)."
 fi
 
 echo "[3.1] Wait until Firehose is ACTIVE"
