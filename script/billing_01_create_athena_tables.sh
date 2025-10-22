@@ -160,7 +160,6 @@ CREATE TABLE %PARQUET_TABLE%
 WITH (
   format = 'PARQUET',
   parquet_compression = 'SNAPPY',
-  external_location = 's3://%BUCKET%/%PARQUET_PREFIX%',
   partitioned_by = ARRAY['year','month','day']
 ) AS
 SELECT
