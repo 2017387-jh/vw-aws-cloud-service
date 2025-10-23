@@ -110,10 +110,27 @@ SQL_CREATE_RAW="${SQL_CREATE_RAW//'%'BUCKET'%'/${BILLING_S3_BUCKET}}"
 start_query "${SQL_DROP_RAW}" "Drop RAW table"
 start_query "${SQL_CREATE_RAW}" "Create RAW table"
 
-# 5. Repair partitions
-echo "[4] MSCK REPAIR on RAW table"
-SQL_REPAIR="MSCK REPAIR TABLE ${RAW_TABLE};"
-start_query "${SQL_REPAIR}" "MSCK REPAIR"
+# 4-a. Partition Projection 활성화
+echo "[3-1] Enable Partition Projection on RAW table"
+SQL_SET_PROJECTION=$(cat <<'SQL'
+ALTER TABLE %RAW_TABLE%
+SET TBLPROPERTIES (
+  'projection.enabled'='true',
+  'projection.year.type'='integer',
+  'projection.year.range'='2000,2300',
+  'projection.month.type'='integer',
+  'projection.month.range'='1,12',
+  'projection.day.type'='integer',
+  'projection.day.range'='1,31',
+  'projection.hour.type'='integer',
+  'projection.hour.range'='0,23',
+  'storage.location.template'='s3://%BUCKET%/json-data/year=${year}/month=${month}/day=${day}/hour=${hour}/'
+);
+SQL
+)
+SQL_SET_PROJECTION="${SQL_SET_PROJECTION//'%'RAW_TABLE'%'/${RAW_TABLE}}"
+SQL_SET_PROJECTION="${SQL_SET_PROJECTION//'%'BUCKET'%'/${BILLING_S3_BUCKET}}"
+start_query "${SQL_SET_PROJECTION}" "Enable Partition Projection"
 
 # 6. View - parse JSON and auto-correct requestTime unit, filter DATA_MESSAGE
 echo "[5] Create or replace VIEW: ${VIEW_NAME}"
