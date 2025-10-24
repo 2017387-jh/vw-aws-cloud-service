@@ -24,9 +24,13 @@ if [ -z "${ALB_SG_ID:-}" ]; then
 fi
 echo "[INFO] ALB SG: $ALB_SG_ID"
 
-# ALB SG 인바운드 80 공개
+# Authorize HTTP 80
 aws ec2 authorize-security-group-ingress --group-id "$ALB_SG_ID" \
   --ip-permissions "IpProtocol=tcp,FromPort=80,ToPort=80,IpRanges=[{CidrIp=0.0.0.0/0}]" >/dev/null 2>&1 || true
+
+# Authorize HTTPS 443
+aws ec2 authorize-security-group-ingress --group-id "$ALB_SG_ID" \
+  --ip-permissions "IpProtocol=tcp,FromPort=443,ToPort=443,IpRanges=[{CidrIp=0.0.0.0/0}]" >/dev/null 2>&1 || true
 
 # ECS SG 조회 (먼저 ecs_02에서 만들어져 있어야 함)
 ECS_SG_ID=$(aws ec2 describe-security-groups \
@@ -41,6 +45,10 @@ echo "[INFO] ECS SG: $ECS_SG_ID"
 # Flask 포트: ALB SG에서만 허용
 aws ec2 authorize-security-group-ingress --group-id "$ECS_SG_ID" \
   --ip-permissions "IpProtocol=tcp,FromPort=$DDN_FLASK_HTTP_PORT,ToPort=$DDN_FLASK_HTTP_PORT,UserIdGroupPairs=[{GroupId=$ALB_SG_ID}]" >/dev/null 2>&1 || true
+
+# gRPC 포트(FLASK_GRPC_PORT=50102)도 ALB SG에서만 허용
+aws ec2 authorize-security-group-ingress --group-id "$ECS_SG_ID" \
+  --ip-permissions "IpProtocol=tcp,FromPort=$DDN_FLASK_GRPC_PORT,ToPort=$DDN_FLASK_GRPC_PORT,UserIdGroupPairs=[{GroupId=$ALB_SG_ID}]" >/dev/null 2>&1 || true
 
 # Triton 포트: 외부 차단, 같은 ECS SG 내부 통신만 허용
 for P in "$DDN_TRITON_HTTP_PORT" "$DDN_TRITON_GRPC_PORT"; do
@@ -81,6 +89,30 @@ if [ -z "${TG_FLASK_ARN:-}" ]; then
 fi
 echo "[INFO] TG Flask: $TG_FLASK_ARN"
 
+TG_GRPC_NAME="${DDN_TG_GRPC:-ddn-tg-grpc}"
+TG_GRPC_ARN=$(aws elbv2 create-target-group \
+  --name "$TG_GRPC_NAME" \
+  --protocol HTTP --protocol-version GRPC \
+  --port "$DDN_FLASK_GRPC_PORT" \
+  --vpc-id "$DDN_VPC_ID" \
+  --target-type ip \
+  --health-check-protocol HTTP \
+  --health-check-path "/denoising.DenoisingService/Ping" \
+  --matcher GrpcCode=0 \
+  --query 'TargetGroups[0].TargetGroupArn' --output text 2>/dev/null || true)
+
+if [ -z "${TG_GRPC_ARN:-}" ] || [ "$TG_GRPC_ARN" = "None" ]; then
+  TG_GRPC_ARN=$(aws elbv2 describe-target-groups --names "$TG_GRPC_NAME" \
+    --query 'TargetGroups[0].TargetGroupArn' --output text 2>/dev/null || true)
+fi
+
+if [ -z "${TG_GRPC_ARN:-}" ] || [ "$TG_GRPC_ARN" = "None" ]; then
+  echo "[ERROR] gRPC Target Group not found or creation failed: $TG_GRPC_NAME"
+  exit 1
+fi
+
+echo "[INFO] TG gRPC: $TG_GRPC_ARN"
+
 # 리스너 80 → 기본 대상 Flask TG
 LISTENER_ARN=$(aws elbv2 create-listener \
   --load-balancer-arn "$ALB_ARN" \
@@ -92,7 +124,49 @@ if [ -z "${LISTENER_ARN:-}" ]; then
     --query 'Listeners[0].ListenerArn' --output text)
 fi
 
-echo "[OK] ALB → Flask only. Triton is internal-only."
+echo "[OK] ALB → Flask only. Listener ARN: $LISTENER_ARN"
+
+# HTTPS(443) 리스너 생성 또는 조회
+HTTPS_LISTENER_ARN=$(aws elbv2 create-listener \
+  --load-balancer-arn "$ALB_ARN" \
+  --protocol HTTPS --port 443 \
+  --certificates CertificateArn="$ACM_CERT_ARN" \
+  --default-actions "Type=forward,TargetGroupArn=$TG_FLASK_ARN" \
+  --query 'Listeners[0].ListenerArn' --output text 2>/dev/null || true)
+
+if [ -z "${HTTPS_LISTENER_ARN:-}" ] || [ "$HTTPS_LISTENER_ARN" = "None" ]; then
+  HTTPS_LISTENER_ARN=$(aws elbv2 describe-listeners \
+    --load-balancer-arn "$ALB_ARN" \
+    --query 'Listeners[?Port==`443`].ListenerArn' --output text 2>/dev/null || true)
+fi
+
+if [ -z "${HTTPS_LISTENER_ARN:-}" ] || [ "$HTTPS_LISTENER_ARN" = "None" ]; then
+  echo "[ERROR] HTTPS(443) listener not found/created. Check ACM_CERT_ARN and SG 443."
+  exit 1
+fi
+echo "[INFO] HTTPS Listener: $HTTPS_LISTENER_ARN"
+
+# gRPC 경로는 gRPC TG로 포워딩 (경로 기반: /denoising.DenoisingService/*)
+# 우선순위 10 사용(겹치지 않게 조절 가능)
+aws elbv2 create-rule \
+  --listener-arn "$HTTPS_LISTENER_ARN" \
+  --priority 10 \
+  --conditions '[
+    {"Field":"path-pattern","PathPatternConfig":{"Values":["/denoising.DenoisingService/*"]}}
+  ]' \
+  --actions "[{\"Type\":\"forward\",\"TargetGroupArn\":\"${TG_GRPC_ARN}\"}]" \
+  >/dev/null 2>&1 || true
+echo "[OK] gRPC path routing rule added on HTTPS listener."
+
+GRPC_TG_LB_ARNS=$(aws elbv2 describe-target-groups \
+  --target-group-arns "$TG_GRPC_ARN" \
+  --query 'TargetGroups[0].LoadBalancerArns' --output text 2>/dev/null || true)
+
+if [ -n "$GRPC_TG_LB_ARNS" ] && [ "$GRPC_TG_LB_ARNS" != "None" ]; then
+  echo "[CHECK] gRPC TG attached to LB(s): $GRPC_TG_LB_ARNS"
+else
+  echo "[CHECK][NG] gRPC TG is NOT attached to any LB."
+fi
 
 # ALB DNSName
 ALB_DNS=$(aws elbv2 describe-load-balancers --names "$DDN_ALB_NAME" \
