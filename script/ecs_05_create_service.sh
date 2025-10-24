@@ -20,6 +20,10 @@ TG_GRPC_ARN=$(aws elbv2 describe-target-groups \
   --query 'TargetGroups[0].TargetGroupArn' \
   --output text)
 
+  echo "[INFO] Creating ECS Service '$DDN_ECS_SERVICE' on cluster '$DDN_ECS_CLUSTER' ..."
+  echo " Flask TG ARN: $TG_FLASK_ARN"
+  echo " gRPC TG ARN: $TG_GRPC_ARN"
+  
 # 보안 그룹, 서브넷
 ECS_SG_ID=$(aws ec2 describe-security-groups \
   --filters "Name=vpc-id,Values=$DDN_VPC_ID" "Name=group-name,Values=$DDN_ECS_SG_NAME" \
