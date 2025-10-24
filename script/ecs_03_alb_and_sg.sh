@@ -24,9 +24,13 @@ if [ -z "${ALB_SG_ID:-}" ]; then
 fi
 echo "[INFO] ALB SG: $ALB_SG_ID"
 
-# ALB SG 인바운드 80 공개
+# Authorize HTTP 80
 aws ec2 authorize-security-group-ingress --group-id "$ALB_SG_ID" \
   --ip-permissions "IpProtocol=tcp,FromPort=80,ToPort=80,IpRanges=[{CidrIp=0.0.0.0/0}]" >/dev/null 2>&1 || true
+
+# Authorize HTTPS 443
+aws ec2 authorize-security-group-ingress --group-id "$ALB_SG_ID" \
+  --ip-permissions "IpProtocol=tcp,FromPort=443,ToPort=443,IpRanges=[{CidrIp=0.0.0.0/0}]" >/dev/null 2>&1 || true
 
 # ECS SG 조회 (먼저 ecs_02에서 만들어져 있어야 함)
 ECS_SG_ID=$(aws ec2 describe-security-groups \
@@ -120,22 +124,49 @@ if [ -z "${LISTENER_ARN:-}" ]; then
     --query 'Listeners[0].ListenerArn' --output text)
 fi
 
-echo "[OK] ALB → Flask only. Triton is internal-only."
+echo "[OK] ALB → Flask only. Listener ARN: $LISTENER_ARN"
+
+# HTTPS(443) 리스너 생성 또는 조회
+HTTPS_LISTENER_ARN=$(aws elbv2 create-listener \
+  --load-balancer-arn "$ALB_ARN" \
+  --protocol HTTPS --port 443 \
+  --certificates CertificateArn="$ACM_CERT_ARN" \
+  --default-actions "Type=forward,TargetGroupArn=$TG_FLASK_ARN" \
+  --query 'Listeners[0].ListenerArn' --output text 2>/dev/null || true)
+
+if [ -z "${HTTPS_LISTENER_ARN:-}" ] || [ "$HTTPS_LISTENER_ARN" = "None" ]; then
+  HTTPS_LISTENER_ARN=$(aws elbv2 describe-listeners \
+    --load-balancer-arn "$ALB_ARN" \
+    --query 'Listeners[?Port==`443`].ListenerArn' --output text 2>/dev/null || true)
+fi
+
+if [ -z "${HTTPS_LISTENER_ARN:-}" ] || [ "$HTTPS_LISTENER_ARN" = "None" ]; then
+  echo "[ERROR] HTTPS(443) listener not found/created. Check ACM_CERT_ARN and SG 443."
+  exit 1
+fi
+echo "[INFO] HTTPS Listener: $HTTPS_LISTENER_ARN"
 
 # gRPC 경로는 gRPC TG로 포워딩 (경로 기반: /denoising.DenoisingService/*)
 # 우선순위 10 사용(겹치지 않게 조절 가능)
 aws elbv2 create-rule \
-  --listener-arn "$LISTENER_ARN" \
+  --listener-arn "$HTTPS_LISTENER_ARN" \
   --priority 10 \
   --conditions '[
-    {
-      "Field": "path-pattern",
-      "PathPatternConfig": { "Values": ["/denoising.DenoisingService/*"] }
-    }
+    {"Field":"path-pattern","PathPatternConfig":{"Values":["/denoising.DenoisingService/*"]}}
   ]' \
-  --actions "[{\"Type\": \"forward\", \"TargetGroupArn\": \"${TG_GRPC_ARN}\"}]" >/dev/null 2>&1 || true
+  --actions "[{\"Type\":\"forward\",\"TargetGroupArn\":\"${TG_GRPC_ARN}\"}]" \
+  >/dev/null 2>&1 || true
+echo "[OK] gRPC path routing rule added on HTTPS listener."
 
-  echo "[OK] gRPC path routing rule added."
+GRPC_TG_LB_ARNS=$(aws elbv2 describe-target-groups \
+  --target-group-arns "$TG_GRPC_ARN" \
+  --query 'TargetGroups[0].LoadBalancerArns' --output text 2>/dev/null || true)
+
+if [ -n "$GRPC_TG_LB_ARNS" ] && [ "$GRPC_TG_LB_ARNS" != "None" ]; then
+  echo "[CHECK] gRPC TG attached to LB(s): $GRPC_TG_LB_ARNS"
+else
+  echo "[CHECK][NG] gRPC TG is NOT attached to any LB."
+fi
 
 # ALB DNSName
 ALB_DNS=$(aws elbv2 describe-load-balancers --names "$DDN_ALB_NAME" \
