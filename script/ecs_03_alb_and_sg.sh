@@ -42,6 +42,10 @@ echo "[INFO] ECS SG: $ECS_SG_ID"
 aws ec2 authorize-security-group-ingress --group-id "$ECS_SG_ID" \
   --ip-permissions "IpProtocol=tcp,FromPort=$DDN_FLASK_HTTP_PORT,ToPort=$DDN_FLASK_HTTP_PORT,UserIdGroupPairs=[{GroupId=$ALB_SG_ID}]" >/dev/null 2>&1 || true
 
+# gRPC 포트(FLASK_GRPC_PORT=50102)도 ALB SG에서만 허용
+aws ec2 authorize-security-group-ingress --group-id "$ECS_SG_ID" \
+  --ip-permissions "IpProtocol=tcp,FromPort=$DDN_FLASK_GRPC_PORT,ToPort=$DDN_FLASK_GRPC_PORT,UserIdGroupPairs=[{GroupId=$ALB_SG_ID}]" >/dev/null 2>&1 || true
+
 # Triton 포트: 외부 차단, 같은 ECS SG 내부 통신만 허용
 for P in "$DDN_TRITON_HTTP_PORT" "$DDN_TRITON_GRPC_PORT"; do
   aws ec2 authorize-security-group-ingress --group-id "$ECS_SG_ID" \
@@ -81,6 +85,23 @@ if [ -z "${TG_FLASK_ARN:-}" ]; then
 fi
 echo "[INFO] TG Flask: $TG_FLASK_ARN"
 
+TG_GRPC_NAME="${DDN_TG_GRPC:-ddn-tg-grpc}"
+TG_GRPC_ARN=$(aws elbv2 create-target-group \
+  --name "$TG_GRPC_NAME" \
+  --protocol HTTP --port "$DDN_FLASK_GRPC_PORT" \
+  --protocol-version HTTP2 \
+  --vpc-id "$DDN_VPC_ID" \
+  --target-type ip \
+  --health-check-protocol HTTP \
+  --health-check-path "/denoising.DenoisingService/Ping" \
+  --matcher GrpcCode=0 \
+  --query 'TargetGroups[0].TargetGroupArn' --output text 2>/dev/null || true)
+if [ -z "${TG_GRPC_ARN:-}" ] || [ "$TG_GRPC_ARN" = "None" ]; then
+  TG_GRPC_ARN=$(aws elbv2 describe-target-groups --names "$TG_GRPC_NAME" \
+    --query 'TargetGroups[0].TargetGroupArn' --output text)
+fi
+echo "[INFO] TG gRPC: $TG_GRPC_ARN"
+
 # 리스너 80 → 기본 대상 Flask TG
 LISTENER_ARN=$(aws elbv2 create-listener \
   --load-balancer-arn "$ALB_ARN" \
@@ -93,6 +114,21 @@ if [ -z "${LISTENER_ARN:-}" ]; then
 fi
 
 echo "[OK] ALB → Flask only. Triton is internal-only."
+
+# gRPC 경로는 gRPC TG로 포워딩 (경로 기반: /denoising.DenoisingService/*)
+# 우선순위 10 사용(겹치지 않게 조절 가능)
+aws elbv2 create-rule \
+  --listener-arn "$LISTENER_ARN" \
+  --priority 10 \
+  --conditions '[
+    {
+      "Field": "path-pattern",
+      "PathPatternConfig": { "Values": ["/denoising.DenoisingService/*"] }
+    }
+  ]' \
+  --actions "[{\"Type\": \"forward\", \"TargetGroupArn\": \"${TG_GRPC_ARN}\"}]" >/dev/null 2>&1 || true
+
+  echo "[OK] gRPC path routing rule added."
 
 # ALB DNSName
 ALB_DNS=$(aws elbv2 describe-load-balancers --names "$DDN_ALB_NAME" \

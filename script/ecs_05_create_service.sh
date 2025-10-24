@@ -14,6 +14,12 @@ TG_FLASK_ARN=$(aws elbv2 describe-target-groups \
   --query 'TargetGroups[0].TargetGroupArn' \
   --output text)
 
+# gRPC Target Group ARN 조회
+TG_GRPC_ARN=$(aws elbv2 describe-target-groups \
+  --names "${DDN_TG_GRPC:-ddn-tg-grpc}" \
+  --query 'TargetGroups[0].TargetGroupArn' \
+  --output text)
+
 # 보안 그룹, 서브넷
 ECS_SG_ID=$(aws ec2 describe-security-groups \
   --filters "Name=vpc-id,Values=$DDN_VPC_ID" "Name=group-name,Values=$DDN_ECS_SG_NAME" \
@@ -26,7 +32,7 @@ REV=$(aws ecs list-task-definitions \
   --family-prefix "$DDN_ECS_TASK_FAMILY" \
   --sort DESC --query 'taskDefinitionArns[0]' --output text)
 
-# ECS 서비스 생성 (Flask만 ALB 연결)
+# ECS 서비스 생성 (Flask + gRPC 모두 ALB 연결)
 aws ecs create-service \
   --cluster "$DDN_ECS_CLUSTER" \
   --service-name "$DDN_ECS_SERVICE" \
@@ -35,11 +41,13 @@ aws ecs create-service \
   --launch-type EC2 \
   --placement-constraints type=distinctInstance \
   --placement-strategy type=spread,field=attribute:ecs.availability-zone \
-  --load-balancers "targetGroupArn=$TG_FLASK_ARN,containerName=$DDN_ECS_CONTAINER,containerPort=$DDN_FLASK_HTTP_PORT" \
+  --load-balancers \
+      "targetGroupArn=$TG_FLASK_ARN,containerName=$DDN_ECS_CONTAINER,containerPort=$DDN_FLASK_HTTP_PORT" \
+      "targetGroupArn=$TG_GRPC_ARN,containerName=$DDN_ECS_CONTAINER,containerPort=$DDN_FLASK_GRPC_PORT" \
   --health-check-grace-period-seconds 60 \
   --network-configuration "awsvpcConfiguration={subnets=[$SUBNETS_JSON],securityGroups=[\"$ECS_SG_ID\"],assignPublicIp=DISABLED}" \
   --query '{Service:service.serviceName,Status:service.status,LoadBalancers:service.loadBalancers}' \
-  --output json \
+  --output json
   || { echo "[ERROR] Failed to create ECS Service"; exit 1; }
 
 # ALB DNS 확인
@@ -49,4 +57,4 @@ DNS=$(aws elbv2 describe-load-balancers \
 
 echo "[OK] Service created. ALB DNS: http://$DNS"
 echo " - Flask: http://$DNS/"
-echo " - Triton: (Flask 컨테이너 내부 통신 전용, ALB 연결 없음)"
+echo " - gRPC : http://$DNS/denoising.DenoisingService/Ping (ALB HTTP/2 라우팅)"
