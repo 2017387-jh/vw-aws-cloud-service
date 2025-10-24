@@ -88,18 +88,25 @@ echo "[INFO] TG Flask: $TG_FLASK_ARN"
 TG_GRPC_NAME="${DDN_TG_GRPC:-ddn-tg-grpc}"
 TG_GRPC_ARN=$(aws elbv2 create-target-group \
   --name "$TG_GRPC_NAME" \
-  --protocol HTTP --port "$DDN_FLASK_GRPC_PORT" \
-  --protocol-version HTTP2 \
+  --protocol HTTP --protocol-version GRPC \
+  --port "$DDN_FLASK_GRPC_PORT" \
   --vpc-id "$DDN_VPC_ID" \
   --target-type ip \
   --health-check-protocol HTTP \
   --health-check-path "/denoising.DenoisingService/Ping" \
   --matcher GrpcCode=0 \
   --query 'TargetGroups[0].TargetGroupArn' --output text 2>/dev/null || true)
+
 if [ -z "${TG_GRPC_ARN:-}" ] || [ "$TG_GRPC_ARN" = "None" ]; then
   TG_GRPC_ARN=$(aws elbv2 describe-target-groups --names "$TG_GRPC_NAME" \
-    --query 'TargetGroups[0].TargetGroupArn' --output text)
+    --query 'TargetGroups[0].TargetGroupArn' --output text 2>/dev/null || true)
 fi
+
+if [ -z "${TG_GRPC_ARN:-}" ] || [ "$TG_GRPC_ARN" = "None" ]; then
+  echo "[ERROR] gRPC Target Group not found or creation failed: $TG_GRPC_NAME"
+  exit 1
+fi
+
 echo "[INFO] TG gRPC: $TG_GRPC_ARN"
 
 # 리스너 80 → 기본 대상 Flask TG
