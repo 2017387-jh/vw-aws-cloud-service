@@ -167,6 +167,32 @@ aws ecs delete-capacity-provider --capacity-provider "${DDN_ASG_NAME}-cp" >/dev/
 echo "[OK] Capacity provider detached or deleted (if existed)."
 
 # ---------------------------------------------------------
+# 7.1. 클러스터 어태치먼트 업데이트 완료 대기
+# ---------------------------------------------------------
+echo "[WAIT] Wait for cluster attachments update to complete..."
+for i in {1..18}; do  # 최대 3분(10s x 18) 정도 대기
+  ATTACH_UPDATING=$(aws ecs describe-clusters \
+    --clusters "$DDN_ECS_CLUSTER" \
+    --include ATTACHMENTS \
+    --query 'length(clusters[0].attachments[?status==`UPDATE_IN_PROGRESS`])' \
+    --output text 2>/dev/null || echo "0")
+
+  # 용량 프로바이더가 비워졌는지도 한번 더 확인(방어적)
+  CP_COUNT=$(aws ecs list-cluster-capacity-providers \
+    --cluster "$DDN_ECS_CLUSTER" \
+    --query 'length(capacityProviders)' \
+    --output text 2>/dev/null || echo "0")
+
+  if [ "$ATTACH_UPDATING" = "0" ] && [ "$CP_COUNT" = "0" ]; then
+    echo "[OK] Cluster attachments updated and capacity providers detached."
+    break
+  fi
+
+  echo "[INFO] attachments updating: $ATTACH_UPDATING, cp_count: $CP_COUNT ... waiting 10s"
+  sleep 10
+done
+
+# ---------------------------------------------------------
 # 8. 로그 그룹 삭제
 # ---------------------------------------------------------
 echo "[STEP 8] Delete CloudWatch Log Group..."
