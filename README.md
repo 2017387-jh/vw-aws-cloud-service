@@ -81,6 +81,9 @@ vw-aws-cloud-service/
    Default output format: json
    ```
 
+4. Auto Scailing 최소 Taks 수
+   1. .env의 DDN_ECS_DESIRED_TASK_COUNT 와 DDN_MIN_CAPACITY 수로 조정
+
 ### 배포 순서
 
 #### 1. 기본 인프라 구성
