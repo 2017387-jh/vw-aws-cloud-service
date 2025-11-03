@@ -32,7 +32,7 @@ aws ecs create-service \
   --service-name "$DDN_ECS_SERVICE" \
   --task-definition "$REV" \
   --desired-count "$DDN_ECS_DESIRED_TASK_COUNT" \
-  --launch-type EC2 \
+  --capacity-provider-strategy "capacityProvider=${DDN_ASG_NAME}-cp,weight=1,base=1" \
   --placement-constraints type=distinctInstance \
   --placement-strategy type=spread,field=attribute:ecs.availability-zone \
   --load-balancers "targetGroupArn=$TG_FLASK_ARN,containerName=$DDN_ECS_CONTAINER,containerPort=$DDN_FLASK_HTTP_PORT" \

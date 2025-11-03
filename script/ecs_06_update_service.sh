@@ -15,6 +15,7 @@ aws ecs update-service \
   --cluster "$DDN_ECS_CLUSTER" \
   --service "$DDN_ECS_SERVICE" \
   --task-definition "$DDN_ECS_TASK_FAMILY:$REV" \
+  --capacity-provider-strategy "capacityProvider=${DDN_ASG_NAME}-cp,weight=1,base=1" \
   --force-new-deployment \
   --desired-count "$DDN_ECS_DESIRED_TASK_COUNT" \
   >/dev/null
