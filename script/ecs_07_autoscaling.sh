@@ -62,6 +62,40 @@ aws application-autoscaling put-scaling-policy \
     \"ScaleOutCooldown\": ${SCALE_OUT_COOLDOWN}
   }"
 
+echo "[INFO] Applying ALB RequestCountPerTarget scaling policy (target=3 requests/target)..."
+
+# ALB와 TargetGroup 풀네임 가져오기
+ALB_FULL_NAME=$(aws elbv2 describe-load-balancers \
+  --region ap-northeast-2 \
+  --names ddn-alb \
+  --query 'LoadBalancers[0].LoadBalancerFullName' \
+  --output text)
+
+TG_FULL_NAME=$(aws elbv2 describe-target-groups \
+  --region ap-northeast-2 \
+  --names ddn-tg-flask \
+  --query 'TargetGroups[0].TargetGroupFullName' \
+  --output text)
+
+RESOURCE_LABEL="app/${ALB_FULL_NAME}/${TG_FULL_NAME}"
+
+aws application-autoscaling put-scaling-policy \
+  --region ap-northeast-2 \
+  --service-namespace ecs \
+  --scalable-dimension ecs:service:DesiredCount \
+  --resource-id service/ddn-ecs-cluster/ddn-ecs-service \
+  --policy-name ddn-ecs-service-alb-rps-scaling \
+  --policy-type TargetTrackingScaling \
+  --target-tracking-scaling-policy-configuration "{
+    \"TargetValue\": 2.0,
+    \"PredefinedMetricSpecification\": {
+      \"PredefinedMetricType\": \"ALBRequestCountPerTarget\",
+      \"ResourceLabel\": \"${RESOURCE_LABEL}\"
+    },
+    \"ScaleInCooldown\": ${SCALE_IN_COOLDOWN},
+    \"ScaleOutCooldown\": ${SCALE_OUT_COOLDOWN}
+  }"
+
 echo "[OK] Auto Scaling setup complete for service: $DDN_ECS_SERVICE"
 echo " - Min Capacity: $DDN_MIN_CAPACITY"
 echo " - Max Capacity: $DDN_MAX_CAPACITY"
