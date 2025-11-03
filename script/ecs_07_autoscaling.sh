@@ -64,30 +64,40 @@ aws application-autoscaling put-scaling-policy \
 
 echo "[INFO] Applying ALB RequestCountPerTarget scaling policy (target=3 requests/target)..."
 
-# ALB와 TargetGroup 풀네임 가져오기
-ALB_FULL_NAME=$(aws elbv2 describe-load-balancers \
-  --region ap-northeast-2 \
-  --names ddn-alb \
-  --query 'LoadBalancers[0].LoadBalancerFullName' \
+# ALB와 TargetGroup ARN 기반 ResourceLabel 생성
+LB_ARN=$(aws elbv2 describe-load-balancers \
+  --region "$AWS_REGION" \
+  --names "$DDN_ALB_NAME" \
+  --query 'LoadBalancers[0].LoadBalancerArn' \
   --output text)
 
-TG_FULL_NAME=$(aws elbv2 describe-target-groups \
-  --region ap-northeast-2 \
-  --names ddn-tg-flask \
-  --query 'TargetGroups[0].TargetGroupFullName' \
+TG_ARN=$(aws elbv2 describe-target-groups \
+  --region "$AWS_REGION" \
+  --names "$DDN_TG_FLASK" \
+  --query 'TargetGroups[0].TargetGroupArn' \
   --output text)
 
-RESOURCE_LABEL="app/${ALB_FULL_NAME}/${TG_FULL_NAME}"
+if [ -z "$LB_ARN" ] || [ "$LB_ARN" = "None" ] || [ -z "$TG_ARN" ] || [ "$TG_ARN" = "None" ]; then
+  echo "[ERROR] Failed to retrieve ALB or Target Group ARN."
+  exit 1
+fi
+
+# ARN에서 라벨 부분 추출
+LB_LABEL=$(echo "$LB_ARN" | sed -E 's|^arn:aws:elasticloadbalancing:[^:]+:[^:]+:loadbalancer/||')
+TG_LABEL=$(echo "$TG_ARN" | sed -E 's|^arn:aws:elasticloadbalancing:[^:]+:[^:]+:||')
+
+RESOURCE_LABEL="${LB_LABEL}/${TG_LABEL}"
+echo "[INFO] RESOURCE_LABEL = ${RESOURCE_LABEL}"
 
 aws application-autoscaling put-scaling-policy \
-  --region ap-northeast-2 \
+  --region "$AWS_REGION" \
   --service-namespace ecs \
   --scalable-dimension ecs:service:DesiredCount \
-  --resource-id service/ddn-ecs-cluster/ddn-ecs-service \
+  --resource-id service/$DDN_ECS_CLUSTER/$DDN_ECS_SERVICE \
   --policy-name ddn-ecs-service-alb-rps-scaling \
   --policy-type TargetTrackingScaling \
   --target-tracking-scaling-policy-configuration "{
-    \"TargetValue\": 2.0,
+    \"TargetValue\": ${DDN_REQUEST_COUNT_PER_TARGET},
     \"PredefinedMetricSpecification\": {
       \"PredefinedMetricType\": \"ALBRequestCountPerTarget\",
       \"ResourceLabel\": \"${RESOURCE_LABEL}\"
