@@ -62,9 +62,9 @@ aws application-autoscaling put-scaling-policy \
     \"ScaleOutCooldown\": ${SCALE_OUT_COOLDOWN}
   }"
 
-echo "[INFO] Applying ALB RequestCountPerTarget scaling policy (target=3 requests/target)..."
+echo "[INFO] Applying ALB RequestCountPerTarget scaling policy (Average=rps/target)..."
 
-# ALB와 TargetGroup ARN 기반 ResourceLabel 생성
+# ALB와 TargetGroup ARN 기반 라벨/차원 추출은 그대로 사용
 LB_ARN=$(aws elbv2 describe-load-balancers \
   --region "$AWS_REGION" \
   --names "$DDN_ALB_NAME" \
@@ -82,13 +82,11 @@ if [ -z "$LB_ARN" ] || [ "$LB_ARN" = "None" ] || [ -z "$TG_ARN" ] || [ "$TG_ARN"
   exit 1
 fi
 
-# ARN에서 라벨 부분 추출
+# CloudWatch 차원 값은 'app/...', 'targetgroup/...' 꼴이 필요하므로 ARN에서 꼬리부분만 추출
 LB_LABEL=$(echo "$LB_ARN" | sed -E 's|^arn:aws:elasticloadbalancing:[^:]+:[^:]+:loadbalancer/||')
 TG_LABEL=$(echo "$TG_ARN" | sed -E 's|^arn:aws:elasticloadbalancing:[^:]+:[^:]+:||')
 
-RESOURCE_LABEL="${LB_LABEL}/${TG_LABEL}"
-echo "[INFO] RESOURCE_LABEL = ${RESOURCE_LABEL}"
-
+# ⬇️ 여기부터 핵심: PredefinedMetricSpecification 대신 CustomizedMetricSpecification + Statistic=Average
 aws application-autoscaling put-scaling-policy \
   --region "$AWS_REGION" \
   --service-namespace ecs \
@@ -98,9 +96,14 @@ aws application-autoscaling put-scaling-policy \
   --policy-type TargetTrackingScaling \
   --target-tracking-scaling-policy-configuration "{
     \"TargetValue\": ${DDN_REQUEST_COUNT_PER_TARGET},
-    \"PredefinedMetricSpecification\": {
-      \"PredefinedMetricType\": \"ALBRequestCountPerTarget\",
-      \"ResourceLabel\": \"${RESOURCE_LABEL}\"
+    \"CustomizedMetricSpecification\": {
+      \"MetricName\": \"RequestCountPerTarget\",
+      \"Namespace\": \"AWS/ApplicationELB\",
+      \"Dimensions\": [
+        {\"Name\": \"LoadBalancer\", \"Value\": \"${LB_LABEL}\"},
+        {\"Name\": \"TargetGroup\",  \"Value\": \"${TG_LABEL}\"}
+      ],
+      \"Statistic\": \"Average\"
     },
     \"ScaleInCooldown\": ${SCALE_IN_COOLDOWN},
     \"ScaleOutCooldown\": ${SCALE_OUT_COOLDOWN}
