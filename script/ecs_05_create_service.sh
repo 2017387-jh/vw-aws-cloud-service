@@ -36,7 +36,7 @@ aws ecs create-service \
   --placement-constraints type=distinctInstance \
   --placement-strategy type=spread,field=attribute:ecs.availability-zone \
   --load-balancers "targetGroupArn=$TG_FLASK_ARN,containerName=$DDN_ECS_CONTAINER,containerPort=$DDN_FLASK_HTTP_PORT" \
-  --health-check-grace-period-seconds 60 \
+  --health-check-grace-period-seconds "$DDN_ECS_HC_GRACE_SECONDS" \
   --network-configuration "awsvpcConfiguration={subnets=[$SUBNETS_JSON],securityGroups=[\"$ECS_SG_ID\"],assignPublicIp=DISABLED}" \
   --query '{Service:service.serviceName,Status:service.status,LoadBalancers:service.loadBalancers}' \
   --output json \
