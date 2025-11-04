@@ -14,6 +14,7 @@ echo "[INFO] Updating service '$DDN_ECS_SERVICE' on cluster '$DDN_ECS_CLUSTER' t
 aws ecs update-service \
   --cluster "$DDN_ECS_CLUSTER" \
   --service "$DDN_ECS_SERVICE" \
+  --health-check-grace-period-seconds "${DDN_ECS_HC_GRACE:-300}" \
   --task-definition "$DDN_ECS_TASK_FAMILY:$REV" \
   --capacity-provider-strategy "capacityProvider=${DDN_ASG_NAME}-cp,weight=1,base=1" \
   --force-new-deployment \
