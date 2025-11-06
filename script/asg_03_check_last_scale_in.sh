@@ -62,8 +62,18 @@ START="$(date -u -d "${START_TS} - 8 minutes" +%Y-%m-%dT%H:%M:%SZ)"
 echo "Window: $START ~ $END (UTC)"
 
 ALARM_DESC="$(aws cloudwatch describe-alarms --region "$AWS_REGION" --alarm-names "$ALARM_NAME" | jq -c '.MetricAlarms[0]')"
-NS="$(printf '%s' "$ALARM_DESC" | jq -r '.Metrics[0].MetricStat.Metric.Namespace // .Namespace')"
-MN="$(printf '%s' "$ALARM_DESC" | jq -r '.Metrics[0].MetricStat.Metric.MetricName // .MetricName')"
+NS="$(
+  printf '%s' "$ALARM_DESC" | jq -r '
+    # 매스 알람(.Metrics[0]...)을 먼저 시도하고, 없으면 단일 알람(.Namespace/.MetricName)으로 폴백
+    try .Metrics[0].MetricStat.Metric.Namespace catch (.Namespace // .Metric.Namespace // empty)
+  '
+)"
+
+MN="$(
+  printf '%s' "$ALARM_DESC" | jq -r '
+    try .Metrics[0].MetricStat.Metric.MetricName  catch (.MetricName // .Metric.MetricName // empty)
+  '
+)"
 
 if [[ "$NS" == "AWS/ApplicationELB" && "$MN" == "RequestCountPerTarget" ]]; then
   LB_ARN="$(aws elbv2 describe-load-balancers --region "$AWS_REGION" --names "$DDN_ALB_NAME" --query 'LoadBalancers[0].LoadBalancerArn' --output text)"
