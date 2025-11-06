@@ -20,9 +20,8 @@ LAST_OUT_JSON="$(
         is_out:   (.Cause|test("ScaleOut|stepscale-out|ScaleOut-ReqPerTarget|gt-[0-9]+-1m"; "i"))
       })
     | reverse
-    | (.[] | select(.is_out==true)) // empty
-    | . // 첫 번째 하나만
-    | first
+    | map(select(.is_out==true))
+    | first?                      
   '
 )"
 
