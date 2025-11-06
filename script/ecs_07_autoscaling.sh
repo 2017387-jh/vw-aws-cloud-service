@@ -107,7 +107,7 @@ STEP_OUT_ARN=$(aws application-autoscaling put-scaling-policy \
     \"Cooldown\": ${DDN_SCALE_OUT_COOLDOWN},
     \"MetricAggregationType\": \"Average\",
     \"StepAdjustments\": [
-      {\"MetricIntervalUpperBound\": 40, \"ScalingAdjustment\": 1},
+      {\"MetricIntervalLowerBound\": 0, \"MetricIntervalUpperBound\": 40, \"ScalingAdjustment\": 1},
       {\"MetricIntervalLowerBound\": 40, \"MetricIntervalUpperBound\": 80, \"ScalingAdjustment\": 1},
       {\"MetricIntervalLowerBound\": 80, \"ScalingAdjustment\": 2}
     ]
