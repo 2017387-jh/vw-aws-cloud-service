@@ -19,10 +19,8 @@ LAST_IN_JSON="$(
         | map(. + { desired: ((.StatusMessage|capture("desired count to (?<d>[0-9]+)"; "i").d // "NaN") | tonumber?) })
       )
     | reverse
-    | (.[] | select(
-        (.Cause|test("ScaleIn|AlarmLow"; "i"))
-      )) // empty
-    | . | first
+    | map(select(.Cause | test("ScaleIn|AlarmLow"; "i")))
+    | first?    
   '
 )"
 
