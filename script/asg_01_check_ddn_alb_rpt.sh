@@ -45,7 +45,7 @@ set -a; source .env; set +a
 : "${DDN_TG_FLASK:?DDN_TG_FLASK가 .env에 필요합니다}"
 : "${DDN_ECS_CLUSTER:?DDN_ECS_CLUSTER가 .env에 필요합니다}"
 : "${DDN_ECS_SERVICE:?DDN_ECS_SERVICE가 .env에 필요합니다}"
-: "${DDN_REQUEST_COUNT_PER_TARGET:?DDN_REQUEST_COUNT_PER_TARGET가 .env에 필요합니다}"  # Target(분당)
+: "${DDN_SCALE_OUT_THRESHOLD_REQUEST_COUNT:?DDN_SCALE_OUT_THRESHOLD_REQUEST_COUNT가 .env에 필요합니다}"  # Target(분당)
 
 # 2) ARN 조회
 LB_ARN=$(aws elbv2 describe-load-balancers \
@@ -133,7 +133,7 @@ LATEST_TS=$(echo "$LATEST" | jq -r '.Timestamp')
 LATEST_SUM=$(echo "$LATEST" | jq -r '.Sum // 0')
 LATEST_RPS=$(awk "BEGIN {printf \"%.2f\", (${LATEST_SUM}+0)/60}")
 
-TARGET="${DDN_REQUEST_COUNT_PER_TARGET}"
+TARGET="${DDN_SCALE_OUT_THRESHOLD_REQUEST_COUNT}"
 
 STATUS="="
 cmp=$(awk "BEGIN {print (${LATEST_SUM} > ${TARGET}) ? 1 : ((${LATEST_SUM} < ${TARGET}) ? -1 : 0)}")

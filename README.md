@@ -420,7 +420,10 @@ ORDER BY total_requests DESC;
 - `DDN_MAX_CAPACITY`: 최대 태스크 수 (기본: 4)
 - `DDN_CPU_HIGH_THRESHOLD`: CPU 상한선 (기본: 80%)
 - `DDN_MEMORY_HIGH_THRESHOLD`: 메모리 상한선 (기본: 80%)
-- `DDN_REQUEST_COUNT_PER_TARGET`: 타겟당 요청 수 (기본: 3.0)
+- `DDN_SCALE_OUT_THRESHOLD_REQUEST_COUNT`: Scale-out 임계값 - 타겟당 분당 요청 수 (기본: 40.0)
+- `DDN_SCALE_OUT_EVALUATION_PERIODS`: Scale-out 평가 기간 (기본: 2분)
+- `DDN_SCALE_IN_REQUEST_COUNT_PER_TARGET`: Scale-in 임계값 - 타겟당 분당 요청 수 (기본: 10.0)
+- `DDN_SCALE_IN_EVALUATION_PERIODS`: Scale-in 평가 기간 (기본: 5분)
 - `DDN_SCALE_OUT_COOLDOWN`: Scale-out 쿨다운 (기본: 60초)
 - `DDN_SCALE_IN_COOLDOWN`: Scale-in 쿨다운 (기본: 60초)
 

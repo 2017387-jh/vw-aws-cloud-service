@@ -114,10 +114,10 @@ STEP_OUT_ARN=$(aws application-autoscaling put-scaling-policy \
   }" | jq -r '.PolicyARN')
 
 # 분당 합계(Sum) 1분 한 포인트만 넘으면 ALARM → 즉시 스케일 아웃
-# 기본 임계는 .env의 DDN_REQUEST_COUNT_PER_TARGET=20.0
+# 기본 임계는 .env의 DDN_SCALE_OUT_THRESHOLD_REQUEST_COUNT=40.0
 aws cloudwatch put-metric-alarm \
   --region "$AWS_REGION" \
-  --alarm-name "ddn-ecs-ScaleOut-ReqPerTarget-gt-${DDN_REQUEST_COUNT_PER_TARGET%-*}-1m" \
+  --alarm-name "ddn-ecs-ScaleOut-ReqPerTarget-gt-${DDN_SCALE_OUT_THRESHOLD_REQUEST_COUNT%-*}-1m" \
   --metric-name "RequestCountPerTarget" \
   --namespace "AWS/ApplicationELB" \
   --dimensions Name=LoadBalancer,Value="$LB_LABEL" Name=TargetGroup,Value="$TG_LABEL" \
