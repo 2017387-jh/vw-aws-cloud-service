@@ -62,15 +62,14 @@ aws application-autoscaling put-scaling-policy \
     \"ScaleOutCooldown\": ${SCALE_OUT_COOLDOWN}
   }"
 
-echo "[INFO] Applying ALB RequestCountPerTarget scaling policy (Average=rps/target)..."
+echo "[INFO] Applying ALB RequestCountPerTarget Step Scaling (Sum per minute)..."
 
-# ALB와 TargetGroup ARN 기반 라벨/차원 추출은 그대로 사용
+# ALB/TG 라벨 계산 (기존 코드와 동일)
 LB_ARN=$(aws elbv2 describe-load-balancers \
   --region "$AWS_REGION" \
   --names "$DDN_ALB_NAME" \
   --query 'LoadBalancers[0].LoadBalancerArn' \
   --output text)
-
 TG_ARN=$(aws elbv2 describe-target-groups \
   --region "$AWS_REGION" \
   --names "$DDN_TG_FLASK" \
@@ -82,32 +81,53 @@ if [ -z "$LB_ARN" ] || [ "$LB_ARN" = "None" ] || [ -z "$TG_ARN" ] || [ "$TG_ARN"
   exit 1
 fi
 
-# CloudWatch 차원 값은 'app/...', 'targetgroup/...' 꼴이 필요하므로 ARN에서 꼬리부분만 추출
+# CloudWatch 차원 라벨(app/... / targetgroup/...) 추출 (기존과 동일)
 LB_LABEL=$(echo "$LB_ARN" | sed -E 's|^arn:aws:elasticloadbalancing:[^:]+:[^:]+:loadbalancer/||')
 TG_LABEL=$(echo "$TG_ARN" | sed -E 's|^arn:aws:elasticloadbalancing:[^:]+:[^:]+:||')
 
-aws application-autoscaling put-scaling-policy \
+# (권장) 기존 타깃트래킹 정책 제거: 3분 연속 조건 제거
+aws application-autoscaling delete-scaling-policy \
   --region "$AWS_REGION" \
   --service-namespace ecs \
   --scalable-dimension ecs:service:DesiredCount \
   --resource-id service/$DDN_ECS_CLUSTER/$DDN_ECS_SERVICE \
   --policy-name ddn-ecs-service-alb-rps-scaling \
-  --policy-type TargetTrackingScaling \
-  --target-tracking-scaling-policy-configuration "{
-    \"TargetValue\": ${DDN_REQUEST_COUNT_PER_TARGET},
-    \"CustomizedMetricSpecification\": {
-      \"MetricName\": \"RequestCountPerTarget\",
-      \"Namespace\": \"AWS/ApplicationELB\",
-      \"Dimensions\": [
-        {\"Name\": \"LoadBalancer\", \"Value\": \"${LB_LABEL}\"},
-        {\"Name\": \"TargetGroup\",  \"Value\": \"${TG_LABEL}\"}
-      ],
-      \"Statistic\": \"Sum\"
-    },
-    \"ScaleInCooldown\": ${SCALE_IN_COOLDOWN},
-    \"ScaleOutCooldown\": ${SCALE_OUT_COOLDOWN}
-  }"
+  >/dev/null 2>&1 || echo "[INFO] TT policy not found, skip"
 
+# Step Scaling (OUT) 정책 생성: 버스트에 즉시 반응
+STEP_OUT_ARN=$(aws application-autoscaling put-scaling-policy \
+  --region "$AWS_REGION" \
+  --service-namespace ecs \
+  --resource-id service/$DDN_ECS_CLUSTER/$DDN_ECS_SERVICE \
+  --scalable-dimension ecs:service:DesiredCount \
+  --policy-name ddn-ecs-stepscale-out-rpm \
+  --policy-type StepScaling \
+  --step-scaling-policy-configuration "{
+    \"AdjustmentType\": \"ChangeInCapacity\",
+    \"Cooldown\": ${DDN_SCALE_OUT_COOLDOWN},
+    \"MetricAggregationType\": \"Average\",
+    \"StepAdjustments\": [
+      {\"MetricIntervalLowerBound\": 0,  \"MetricIntervalUpperBound\": 40, \"ScalingAdjustment\": 1},
+      {\"MetricIntervalLowerBound\": 40, \"MetricIntervalUpperBound\": 80, \"ScalingAdjustment\": 1},
+      {\"MetricIntervalLowerBound\": 80,                           \"ScalingAdjustment\": 2}
+    ]
+  }" | jq -r '.PolicyARN')
+
+# 분당 합계(Sum) 1분 한 포인트만 넘으면 ALARM → 즉시 스케일 아웃
+# 기본 임계는 .env의 DDN_REQUEST_COUNT_PER_TARGET=20.0
+aws cloudwatch put-metric-alarm \
+  --region "$AWS_REGION" \
+  --alarm-name "ddn-ecs-ScaleOut-ReqPerTarget-gt-${DDN_REQUEST_COUNT_PER_TARGET%-*}-1m" \
+  --metric-name "RequestCountPerTarget" \
+  --namespace "AWS/ApplicationELB" \
+  --dimensions Name=LoadBalancer,Value="$LB_LABEL" Name=TargetGroup,Value="$TG_LABEL" \
+  --statistic Sum \
+  --period 60 \
+  --evaluation-periods 1 \
+  --threshold "${DDN_REQUEST_COUNT_PER_TARGET}" \
+  --comparison-operator GreaterThanThreshold \
+  --treat-missing-data notBreaching \
+  --alarm-actions "$STEP_OUT_ARN"
 echo "[OK] Auto Scaling setup complete for service: $DDN_ECS_SERVICE"
 echo " - Min Capacity: $DDN_MIN_CAPACITY"
 echo " - Max Capacity: $DDN_MAX_CAPACITY"
