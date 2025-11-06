@@ -142,21 +142,21 @@ STEP_IN_ARN=$(aws application-autoscaling put-scaling-policy \
     \"Cooldown\": ${DDN_SCALE_IN_COOLDOWN},
     \"MetricAggregationType\": \"Average\",
     \"StepAdjustments\": [
-      {\"MetricIntervalUpperBound\": 10, \"ScalingAdjustment\": -1}
+      {\"MetricIntervalUpperBound\": 0, \"ScalingAdjustment\": -1}
     ]
   }" | jq -r '.PolicyARN')
 
-# 요청이 적을 때(10 미만 2분 유지) scale-in
+# 요청이 적을 때(DDN_SCALE_IN_REQUEST_COUNT_PER_TARGET 미만 2분 유지) scale-in
 aws cloudwatch put-metric-alarm \
   --region "$AWS_REGION" \
-  --alarm-name "ddn-ecs-ScaleIn-ReqPerTarget-lt-10-1m" \
+  --alarm-name "ddn-ecs-ScaleIn-ReqPerTarget-lt-${DDN_SCALE_IN_REQUEST_COUNT_PER_TARGET}-1m" \
   --metric-name "RequestCountPerTarget" \
   --namespace "AWS/ApplicationELB" \
   --dimensions Name=LoadBalancer,Value="$LB_LABEL" Name=TargetGroup,Value="$TG_LABEL" \
   --statistic Sum \
   --period 60 \
   --evaluation-periods 2 \
-  --threshold 10 \
+  --threshold "${DDN_SCALE_IN_REQUEST_COUNT_PER_TARGET}" \
   --comparison-operator LessThanThreshold \
   --treat-missing-data notBreaching \
   --alarm-actions "$STEP_IN_ARN"
