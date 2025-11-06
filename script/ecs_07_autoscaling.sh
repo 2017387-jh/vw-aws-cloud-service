@@ -124,10 +124,45 @@ aws cloudwatch put-metric-alarm \
   --statistic Sum \
   --period 60 \
   --evaluation-periods 1 \
-  --threshold "${DDN_REQUEST_COUNT_PER_TARGET}" \
+  --threshold "${DDN_SCALE_OUT_THRESHOLD_REQUEST_COUNT}" \
   --comparison-operator GreaterThanThreshold \
   --treat-missing-data notBreaching \
   --alarm-actions "$STEP_OUT_ARN"
+
+# Step Scaling (IN) 정책 생성: 요청 수가 낮을 때 줄이기
+STEP_IN_ARN=$(aws application-autoscaling put-scaling-policy \
+  --region "$AWS_REGION" \
+  --service-namespace ecs \
+  --resource-id service/$DDN_ECS_CLUSTER/$DDN_ECS_SERVICE \
+  --scalable-dimension ecs:service:DesiredCount \
+  --policy-name ddn-ecs-stepscale-in-rpm \
+  --policy-type StepScaling \
+  --step-scaling-policy-configuration "{
+    \"AdjustmentType\": \"ChangeInCapacity\",
+    \"Cooldown\": ${DDN_SCALE_IN_COOLDOWN},
+    \"MetricAggregationType\": \"Average\",
+    \"StepAdjustments\": [
+      {\"MetricIntervalUpperBound\": 10, \"ScalingAdjustment\": -1}
+    ]
+  }" | jq -r '.PolicyARN')
+
+# 요청이 적을 때(10 미만 2분 유지) scale-in
+aws cloudwatch put-metric-alarm \
+  --region "$AWS_REGION" \
+  --alarm-name "ddn-ecs-ScaleIn-ReqPerTarget-lt-10-1m" \
+  --metric-name "RequestCountPerTarget" \
+  --namespace "AWS/ApplicationELB" \
+  --dimensions Name=LoadBalancer,Value="$LB_LABEL" Name=TargetGroup,Value="$TG_LABEL" \
+  --statistic Sum \
+  --period 60 \
+  --evaluation-periods 2 \
+  --threshold 10 \
+  --comparison-operator LessThanThreshold \
+  --treat-missing-data notBreaching \
+  --alarm-actions "$STEP_IN_ARN"
+
+echo "[INFO] Applied StepScaling (IN) policy for low traffic condition"
+
 echo "[OK] Auto Scaling setup complete for service: $DDN_ECS_SERVICE"
 echo " - Min Capacity: $DDN_MIN_CAPACITY"
 echo " - Max Capacity: $DDN_MAX_CAPACITY"
