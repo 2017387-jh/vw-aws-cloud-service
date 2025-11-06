@@ -86,7 +86,6 @@ fi
 LB_LABEL=$(echo "$LB_ARN" | sed -E 's|^arn:aws:elasticloadbalancing:[^:]+:[^:]+:loadbalancer/||')
 TG_LABEL=$(echo "$TG_ARN" | sed -E 's|^arn:aws:elasticloadbalancing:[^:]+:[^:]+:||')
 
-# ⬇️ 여기부터 핵심: PredefinedMetricSpecification 대신 CustomizedMetricSpecification + Statistic=Average
 aws application-autoscaling put-scaling-policy \
   --region "$AWS_REGION" \
   --service-namespace ecs \
@@ -103,7 +102,7 @@ aws application-autoscaling put-scaling-policy \
         {\"Name\": \"LoadBalancer\", \"Value\": \"${LB_LABEL}\"},
         {\"Name\": \"TargetGroup\",  \"Value\": \"${TG_LABEL}\"}
       ],
-      \"Statistic\": \"Average\"
+      \"Statistic\": \"Sum\"
     },
     \"ScaleInCooldown\": ${SCALE_IN_COOLDOWN},
     \"ScaleOutCooldown\": ${SCALE_OUT_COOLDOWN}
