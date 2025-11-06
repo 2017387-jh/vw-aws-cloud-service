@@ -1,0 +1,243 @@
+Script started on 2025-11-06 01:50:28+00:00 [TERM="screen-256color" TTY="/dev/pts/1" COLUMNS="273" LINES="61"]
+=== RequestCountPerTarget (Sum = 분당 합계, 타깃 1개 기준) ===
+리전: ap-northeast-2
+ALB:   ddn-alb  (Label: app/ddn-alb/8f3ac748671fa874)
+TG:    ddn-tg-flask  (Label: targetgroup/ddn-tg-flask/d96cf26d739b5c87)
+범위:  2025-11-06T01:39:23Z  ~  2025-11-06T01:49:23Z (UTC)
+
+Timestamp(UTC)                 Sum   RPS(Sum/60)
+--------------------------------  ----  ----------
+2025-11-06T01:39:00+00:00           0        0.00
+2025-11-06T01:40:00+00:00           0        0.00
+2025-11-06T01:41:00+00:00           0        0.00
+2025-11-06T01:42:00+00:00           0        0.00
+2025-11-06T01:43:00+00:00           0        0.00
+2025-11-06T01:44:00+00:00          16        0.27
+2025-11-06T01:45:00+00:00           0        0.00
+2025-11-06T01:46:00+00:00          25        0.42
+2025-11-06T01:47:00+00:00           7        0.12
+2025-11-06T01:48:00+00:00           7        0.12
+
+=== Latest (가장 최근 1분) ===
+Timestamp: 2025-11-06T01:48:00+00:00 (UTC)
+Sum:       7 (분당/타깃)
+RPS:       0.12 (참고용)
+Target:    20.0 (분당/타깃)
+비교:      Sum < (스케일 인 경향) Targetkcloudshell-user@:~/vw-aws-cloud-service/script\[?2004hscript $ === RequestCountPerTarget (Sum = 분당 합계, 타깃 1개 기준) ===
+[?2004lbash: syntax error near unexpected token `('
+kcloudshell-user@:~/vw-aws-cloud-service/script\[?2004hscript $ 리전: ap-northeast-2
+[?2004lbash: 리전:: command not found
+kcloudshell-user@:~/vw-aws-cloud-service/script\[?2004hscript $ ALB:   ddn-alb  (Label: app/ddn-alb/8f3ac748671fa874)
+[?2004lbash: syntax error near unexpected token `('
+kcloudshell-user@:~/vw-aws-cloud-service/script\[?2004hscript $ TG:    ddn-tg-flask  (Label: targetgroup/ddn-tg-flask/d96cf26d739b5c87)
+[?2004lbash: syntax error near unexpected token `('
+kcloudshell-user@:~/vw-aws-cloud-service/script\[?2004hscript $ 범위:  2025-11-06T01:39:23Z  ~  2025-11-06T01:49:23Z (UTC)
+[?2004lbash: syntax error near unexpected token `('
+kcloudshell-user@:~/vw-aws-cloud-service/script\[?2004hscript $ 
+[?2004lkcloudshell-user@:~/vw-aws-cloud-service/script\[?2004hscript $ Timestamp(UTC)                 Sum   RPS(Sum/60)
+[?2004lbash: syntax error near unexpected token `UTC'
+kcloudshell-user@:~/vw-aws-cloud-service/script\[?2004hscript $ --------------------------------  ----  ----------
+[?2004lbash: --------------------------------: command not found
+kcloudshell-user@:~/vw-aws-cloud-service/script\[?2004hscript $ 2025-11-06T01:39:00+00:00           0        0.00
+[?2004lbash: 2025-11-06T01:39:00+00:00: command not found
+kcloudshell-user@:~/vw-aws-cloud-service/script\[?2004hscript $ 2025-11-06T01:40:00+00:00           0        0.00
+[?2004lbash: 2025-11-06T01:40:00+00:00: command not found
+kcloudshell-user@:~/vw-aws-cloud-service/script\[?2004hscript $ 2025-11-06T01:41:00+00:00           0        0.00
+[?2004lbash: 2025-11-06T01:41:00+00:00: command not found
+kcloudshell-user@:~/vw-aws-cloud-service/script\[?2004hscript $ 2025-11-06T01:42:00+00:00           0        0.00
+[?2004lbash: 2025-11-06T01:42:00+00:00: command not found
+kcloudshell-user@:~/vw-aws-cloud-service/script\[?2004hscript $ 2025-11-06T01:43:00+00:00           0        0.00
+[?2004lbash: 2025-11-06T01:43:00+00:00: command not found
+kcloudshell-user@:~/vw-aws-cloud-service/script\[?2004hscript $ 2025-11-06T01:44:00+00:00          16        0.27
+[?2004lbash: 2025-11-06T01:44:00+00:00: command not found
+kcloudshell-user@:~/vw-aws-cloud-service/script\[?2004hscript $ 2025-11-06T01:45:00+00:00           0        0.00
+[?2004lbash: 2025-11-06T01:45:00+00:00: command not found
+kcloudshell-user@:~/vw-aws-cloud-service/script\[?2004hscript $ 2025-11-06T01:46:00+00:00          25        0.42
+[?2004lbash: 2025-11-06T01:46:00+00:00: command not found
+kcloudshell-user@:~/vw-aws-cloud-service/script\[?2004hscript $ 2025-11-06T01:47:00+00:00           7        0.12
+[?2004lbash: 2025-11-06T01:47:00+00:00: command not found
+kcloudshell-user@:~/vw-aws-cloud-service/script\[?2004hscript $ 2025-11-06T01:48:00+00:00           7        0.12
+[?2004lbash: 2025-11-06T01:48:00+00:00: command not found
+kcloudshell-user@:~/vw-aws-cloud-service/script\[?2004hscript $ 
+[?2004lkcloudshell-user@:~/vw-aws-cloud-service/script\[?2004hscript $ === Latest (가장 최근 1분) ===
+[?2004lbash: syntax error near unexpected token `('
+kcloudshell-user@:~/vw-aws-cloud-service/script\[?2004hscript $ Timestamp: 2025-11-06T01:48:00+00:00 (UTC)
+[?2004lbash: syntax error near unexpected token `('
+kcloudshell-user@:~/vw-aws-cloud-service/script\[?2004hscript $ Sum:       7 (분당/타깃)
+[?2004lbash: syntax error near unexpected token `('
+kcloudshell-user@:~/vw-aws-cloud-service/script\[?2004hscript $ RPS:       0.12 (참고용)
+[?2004lbash: syntax error near unexpected token `('
+kcloudshell-user@:~/vw-aws-cloud-service/script\[?2004hscript $ Target:    20.0 (분당/타깃)
+[?2004lbash: syntax error near unexpected token `('
+kcloudshell-user@:~/vw-aws-cloud-service/script\[?2004hscript $ 비교:      Sum < (스케일 인 경향) Target
+[?2004lbash: syntax error near unexpected token `('
+kcloudshell-user@:~/vw-aws-cloud-service/script\[?2004hscript $ 
+[?2004lkcloudshell-user@:~/vw-aws-cloud-service/script\[?2004hscript $ 
+[?2004lkcloudshell-user@:~/vw-aws-cloud-service/script\[?2004hscript $ set -a; source .env; set +a
+[?2004lkcloudshell-user@:~/vw-aws-cloud-service/script\[?2004hscript $ 
+[?2004lkcloudshell-user@:~/vw-aws-cloud-service/script\[?2004hscript $ aws cloudwatch describe-alarms \
+[?2004l[?2004h>   --region "$AWS_REGION" \
+[?2004l[?2004h>   --alarm-names "ddn-ecs-ScaleOut-ReqPerTarget-gt-20.0-1m" \
+[?2004l[?2004h> | jq -r '.MetricAlarms[0] | {AlarmName, AlarmActions}'
+[?2004l[1;39m{
+  [0m[1;34m"AlarmName"[0m[1;39m: [0m[0;32m"ddn-ecs-ScaleOut-ReqPerTarget-gt-20.0-1m"[0m[1;39m,
+  [0m[1;34m"AlarmActions"[0m[1;39m: [0m[1;39m[
+    [0;32m"arn:aws:autoscaling:ap-northeast-2:420509932186:scalingPolicy:2061a8ec-877b-4387-9505-c86eed7a04e5:resource/ecs/service/ddn-ecs-cluster/ddn-ecs-service:policyName/ddn-ecs-stepscale-out-rpm"[0m[1;39m
+  [1;39m][0m[1;39m
+[1;39m}[0m
+kcloudshell-user@:~/vw-aws-cloud-service/script\[?2004hscript $ POLICY_ARN=$(aws application-autoscaling describe-scaling-policies \
+[?2004l[?2004h>   --region "$AWS_REGION" --service-namespace ecs \
+[?2004l[?2004h>   --resource-id service/$DDN_ECS_CLUSTER/$DDN_ECS_SERVICE \
+[?2004l[?2004h> | jq -r '.ScalingPolicies[] | select(.PolicyName=="ddn-ecs-stepscale-out-rpm").PolicyARN')
+[?2004l
+kcloudshell-user@:~/vw-aws-cloud-service/script\[?2004hscript $ 
+[?2004lkcloudshell-user@:~/vw-aws-cloud-service/script\[?2004hscript $ echo "PolicyARN=$POLICY_ARN"
+[?2004lPolicyARN=arn:aws:autoscaling:ap-northeast-2:420509932186:scalingPolicy:2061a8ec-877b-4387-9505-c86eed7a04e5:resource/ecs/service/ddn-ecs-cluster/ddn-ecs-service:policyName/ddn-ecs-stepscale-out-rpm
+kcloudshell-user@:~/vw-aws-cloud-service/script\[?2004hscript $ 
+[?2004lkcloudshell-user@:~/vw-aws-cloud-service/script\[?2004hscript $ aws cloudwatch put-metric-alarm \
+[?2004l[?2004h>   --region "$AWS_REGION" \
+[?2004l[?2004h>   --alarm-name "ddn-ecs-ScaleOut-ReqPerTarget-gt-20.0-1m" \
+[?2004l[?2004h>   --metric-name "RequestCountPerTarget" \
+[?2004l[?2004h>   --namespace "AWS/ApplicationELB" \
+[?2004l[?2004h>   --dimensions Name=LoadBalancer,Value="$(echo "$LB_ARN" | sed -E 's|^arn:aws:elasticloadbalancing:[^:]+:[^:]+:loadbalancer/||')" \
+[?2004l[?2004h>                Name=TargetGroup,Value="$(echo "$TG_ARN" | sed -E 's|^arn:aws:elasticloadbalancing:[^:]+:[^:]+:||')" \
+[?2004l[?2004h>   --statistic Sum \
+[?2004l[?2004h>   --period 60 \
+[?2004l[?2004h>   --evaluation-periods 1 \
+[?2004l[?2004h>   --threshold 20 \
+[?2004l[?2004h>   --comparison-operator GreaterThanThreshold \
+[?2004l[?2004h>   --treat-missing-data notBreaching \
+[?2004l[?2004h>   --alarm-actions "$POLICY_ARN"
+[?2004l
+Parameter validation failed:
+Invalid length for parameter Dimensions[0].Value, value: 0, valid min length: 1
+Invalid length for parameter Dimensions[1].Value, value: 0, valid min length: 1
+kcloudshell-user@:~/vw-aws-cloud-service/script\[?2004hscript $ 
+[?2004lkcloudshell-user@:~/vw-aws-cloud-service/script\[?2004hscript $ set -a; source .env; set +a
+[?2004lkcloudshell-user@:~/vw-aws-cloud-service/script\[?2004hscript $ 
+[?2004lkcloudshell-user@:~/vw-aws-cloud-service/script\[?2004hscript $ # ARN 조회
+[?2004lkcloudshell-user@:~/vw-aws-cloud-service/script\[?2004hscript $ LB_ARN=$(aws elbv2 describe-load-balancers \
+[?2004l[?2004h>   --region "$AWS_REGION" \
+[?2004l[?2004h>   --names "$DDN_ALB_NAME" \
+[?2004l[?2004h>   --query 'LoadBalancers[0].LoadBalancerArn' \
+[?2004l[?2004h>   --output text)
+[?2004lkcloudshell-user@:~/vw-aws-cloud-service/script\[?2004hscript $ 
+[?2004lkcloudshell-user@:~/vw-aws-cloud-service/script\[?2004hscript $ TG_ARN=$(aws elbv2 describe-target-groups \
+[?2004l[?2004h>   --region "$AWS_REGION" \
+[?2004l[?2004h>   --names "$DDN_TG_FLASK" \
+[?2004l[?2004h>   --query 'TargetGroups[0].TargetGroupArn' \
+[?2004l[?2004h>   --output text)
+[?2004l
+kcloudshell-user@:~/vw-aws-cloud-service/script\[?2004hscript $ 
+[?2004lkcloudshell-user@:~/vw-aws-cloud-service/script\[?2004hscript $ # 라벨 추출 (CloudWatch 차원값 형식)
+[?2004lkcloudshell-user@:~/vw-aws-cloud-service/script\[?2004hscript $ LB_LABEL=$(echo "$LB_ARN" | sed -E 's|^arn:aws:elasticloadbalancing:[^:]+:[^:]+:loadbalancer/||')
+[?2004lkcloudshell-user@:~/vw-aws-cloud-service/script\[?2004hscript $ TG_LABEL=$(echo "$TG_ARN" | sed -E 's|^arn:aws:elasticloadbalancing:[^:]+:[^:]+:||')
+[?2004lkcloudshell-user@:~/vw-aws-cloud-service/script\[?2004hscript $ 
+[?2004lkcloudshell-user@:~/vw-aws-cloud-service/script\[?2004hscript $ # 가드: 비어있으면 바로 중단
+[?2004lkcloudshell-user@:~/vw-aws-cloud-service/script\[?2004hscript $ : "${LB_LABEL:?LB_LABEL empty}"; : "${TG_LABEL:?TG_LABEL empty}"
+[?2004lkcloudshell-user@:~/vw-aws-cloud-service/script\[?2004hscript $ 
+[?2004lkcloudshell-user@:~/vw-aws-cloud-service/script\[?2004hscript $ echo "LB_LABEL=$LB_LABEL"
+[?2004lLB_LABEL=app/ddn-alb/8f3ac748671fa874
+kcloudshell-user@:~/vw-aws-cloud-service/script\[?2004hscript $ echo "TG_LABEL=$TG_LABEL"
+[?2004lTG_LABEL=targetgroup/ddn-tg-flask/d96cf26d739b5c87
+kcloudshell-user@:~/vw-aws-cloud-service/script\[?2004hscript $ set -a; source .env; set +a
+[?2004lkcloudshell-user@:~/vw-aws-cloud-service/script\[?2004hscript $ 
+[?2004lkcloudshell-user@:~/vw-aws-cloud-service/script\[?2004hscript $ aws application-autoscaling describe-scaling-activities \
+[?2004l[?2004h>   --region "$AWS_REGION" \
+[?2004l[?2004h>   --service-namespace ecs \
+[?2004l[?2004h>   --resource-id service/$DDN_ECS_CLUSTER/$DDN_ECS_SERVICE \
+[?2004l[?2004h>   --max-results 5 \
+[?2004l[?2004h> | jq -r '.ScalingActivities[]
+[?2004l[?2004h>   | select(.StatusCode=="Successful")
+[?2004l[?2004h>   | [.StartTime, .StatusMessage, .Cause] | @tsv'
+[?2004l2025-11-06T01:49:53.580000+00:00	Successfully set desired count to 2. Change successfully fulfilled by ecs.	monitor alarm ddn-ecs-ScaleOut-ReqPerTarget-gt-20.0-1m in state ALARM triggered policy ddn-ecs-stepscale-out-rpm
+2025-11-05T00:21:04.540000+00:00	Successfully set desired count to 1. Change successfully fulfilled by ecs.	minimum capacity was set to 1
+2025-11-04T06:30:07.347000+00:00	Successfully set desired count to 4. Change successfully fulfilled by ecs.	monitor alarm TargetTracking-service/ddn-ecs-cluster/ddn-ecs-service-AlarmHigh-3182e3e5-238d-4c80-871b-eec59701a007 in state ALARM triggered policy ddn-ecs-service-alb-rps-scaling
+kcloudshell-user@:~/vw-aws-cloud-service/script\[?2004hscript $ ./[K[K./ㄷㅊ[Ke[K[Kecs_12[K[K
+ecs_00_prereqs.sh            ecs_02_capacity_gpu_asg.sh   ecs_04_register_taskdef.sh   ecs_06_update_service.sh     ecs_10_go_all.sh             ecs_90_pause.sh              ecs_97_delete_alb.sh         ecs_99_cleanup.sh            
+ecs_01_create_cluster.sh     ecs_03_alb_and_sg.sh         ecs_05_create_service.sh     ecs_07_autoscaling.sh        ecs_11_check_ddn_alb_rpt.sh  ecs_91_resume.sh             ecs_98_delete_task_defs.sh   
+script $ ./ecs_[K11[K[K_+[K11_check_ddn_alb_rpt.sh [K
+[?2004l=== RequestCountPerTarget (Sum = 분당 합계, 타깃 1개 기준) ===
+리전: ap-northeast-2
+ALB:   ddn-alb  (Label: app/ddn-alb/8f3ac748671fa874)
+TG:    ddn-tg-flask  (Label: targetgroup/ddn-tg-flask/d96cf26d739b5c87)
+범위:  2025-11-06T01:47:52Z  ~  2025-11-06T01:57:52Z (UTC)
+
+Timestamp(UTC)                 Sum   RPS(Sum/60)
+--------------------------------  ----  ----------
+2025-11-06T01:47:00+00:00           7        0.12
+2025-11-06T01:48:00+00:00          11        0.18
+2025-11-06T01:49:00+00:00           5        0.08
+2025-11-06T01:50:00+00:00           0        0.00
+2025-11-06T01:51:00+00:00           0        0.00
+2025-11-06T01:52:00+00:00           0        0.00
+2025-11-06T01:53:00+00:00           0        0.00
+2025-11-06T01:54:00+00:00           0        0.00
+2025-11-06T01:55:00+00:00           0        0.00
+2025-11-06T01:56:00+00:00           0        0.00
+
+=== Latest (가장 최근 1분) ===
+Timestamp: 2025-11-06T01:56:00+00:00 (UTC)
+Sum:       0 (분당/타깃)
+RPS:       0.00 (참고용)
+Target:    20.0 (분당/타깃)
+비교:      Sum < (스케일 인 경향) Target
+kcloudshell-user@:~/vw-aws-cloud-service/script\[?2004hscript $ ALARM="ddn-ecs-ScaleOut-ReqPerTarget-gt-20.0-1m"
+[?2004lkcloudshell-user@:~/vw-aws-cloud-service/script\[?2004hscript $ 
+[?2004lkcloudshell-user@:~/vw-aws-cloud-service/script\[?2004hscript $ aws cloudwatch describe-alarm-history \
+[?2004l[?2004h>   --region "$AWS_REGION" \
+[?2004l[?2004h>   --alarm-name "$ALARM" \
+[?2004l[?2004h>   --history-item-type StateUpdate \
+[?2004l[?2004h>   --max-items 10 \
+[?2004l[?2004h> | jq -r '.AlarmHistoryItems[] | [.Timestamp, .HistorySummary] | @tsv'
+[?2004l2025-11-06T01:50:53.389000+00:00	Alarm updated from ALARM to OK
+2025-11-06T01:49:53.389000+00:00	Alarm updated from OK to ALARM
+2025-11-06T01:44:53.388000+00:00	Alarm updated from INSUFFICIENT_DATA to OK
+kcloudshell-user@:~/vw-aws-cloud-service/script\[?2004hscript $ END=$(date -u -d '2025-11-06 01:51:30' +%Y-%m-%dT%H:%M:%SZ)
+[?2004lkcloudshell-user@:~/vw-aws-cloud-service/script\[?2004hscript $ START=$(date -u -d '2025-11-06 01:44:00' +%Y-%m-%dT%H:%M:%SZ)
+[?2004lkcloudshell-user@:~/vw-aws-cloud-service/script\[?2004hscript $ 
+[?2004lkcloudshell-user@:~/vw-aws-cloud-service/script\[?2004hscript $ aws cloudwatch get-metric-statistics \
+[?2004l[?2004h>   --region "$AWS_REGION" \
+[?2004l[?2004h>   --namespace AWS/ApplicationELB \
+[?2004l[?2004h>   --metric-name RequestCountPerTarget \
+[?2004l[?2004h>   --dimensions Name=LoadBalancer,Value="$LB_LABEL" Name=TargetGroup,Value="$TG_LABEL" \
+[?2004l[?2004h>   --start-time "$START" --end-time "$END" \
+[?2004l[?2004h>   --period 60 --statistics Sum \
+[?2004l[?2004h> | jq -r '.Datapoints | sort_by(.Timestamp) | map("\(.Timestamp)  Sum=\(.Sum)") | .[]'
+[?2004l2025-11-06T01:44:00+00:00  Sum=16.0
+2025-11-06T01:45:00+00:00  Sum=0.0
+2025-11-06T01:46:00+00:00  Sum=25.0
+2025-11-06T01:47:00+00:00  Sum=7.0
+2025-11-06T01:48:00+00:00  Sum=11.0
+2025-11-06T01:49:00+00:00  Sum=5.0
+2025-11-06T01:50:00+00:00  Sum=0.0
+kcloudshell-user@:~/vw-aws-cloud-service/script\[?2004hscript $ … monitor alarm ddn-ecs-ScaleOut-ReqPerTarget-gt-20.0-1m in state ALARM triggered policy ddn-ecs-stepscale-out-rpm
+[?2004lbash: …: command not found
+kcloudshell-user@:~/vw-aws-cloud-service/script\[?2004hscript $ git pull origin main
+[?2004lremote: Enumerating objects: 7, done.[K
+remote: Counting objects:  14% (1/7)[Kremote: Counting objects:  28% (2/7)[Kremote: Counting objects:  42% (3/7)[Kremote: Counting objects:  57% (4/7)[Kremote: Counting objects:  71% (5/7)[Kremote: Counting objects:  85% (6/7)[Kremote: Counting objects: 100% (7/7)[Kremote: Counting objects: 100% (7/7), done.[K
+remote: Compressing objects:  50% (1/2)[Kremote: Compressing objects: 100% (2/2)[Kremote: Compressing objects: 100% (2/2), done.[K
+remote: Total 5 (delta 3), reused 5 (delta 3), pack-reused 0 (from 0)[K
+Unpacking objects:  20% (1/5)Unpacking objects:  40% (2/5)Unpacking objects:  60% (3/5)Unpacking objects:  80% (4/5)Unpacking objects: 100% (5/5)Unpacking objects: 100% (5/5), 3.31 KiB | 1.65 MiB/s, done.
+From https://github.com/2017387-jh/vw-aws-cloud-service
+ * branch            main       -> FETCH_HEAD
+   8fa61e6..054bb85  main       -> origin/main
+Updating 8fa61e6..054bb85
+Fast-forward
+ script/{ecs_11_check_ddn_alb_rpt.sh => asg_01_check_ddn_alb_rpt.sh} |   0
+ script/asg_02_check_last_scale_out.sh                               |  96 [32m++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++[m
+ script/asg_03_check_last_scale_in.sh                                | 117 [32m+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++[m
+ 3 files changed, 213 insertions(+)
+ rename script/{ecs_11_check_ddn_alb_rpt.sh => asg_01_check_ddn_alb_rpt.sh} (100%)
+ mode change 100755 => 100644
+ create mode 100644 script/asg_02_check_last_scale_out.sh
+ create mode 100644 script/asg_03_check_last_scale_in.sh
+kcloudshell-user@:~/vw-aws-cloud-service/script\[?2004hscript $ ./[K[Kls
+[?2004l'$'                               [0m[01;32mbilling_00_create_update_pipeline.sh[0m   [01;32mdownloaded_test.tif[0m         [01;32mecs_01_create_cluster.sh[0m     [01;32mecs_91_resume.sh[0m                    [01;32mlambda_52_test_invoke_download.sh[0m   [01;32ms3_upload_file.sh[0m                   [01;32mtest_input.tif[0m
+ [01;32mapigw_00_create_api.sh[0m           [01;32mbilling_01_create_athena_tables.sh[0m     [01;32mdownload.txt[0m                [01;32mecs_02_capacity_gpu_asg.sh[0m   [01;32mecs_97_delete_alb.sh[0m                [01;32mlambda_99_cleanup.sh[0m                [01;32msagemaker_create_iam_role.sh[0m        [01;32mupload_response.json[0m
+ [01;32mapigw_51_upload_localimage.py[0m    [01;32mbilling_02_run_daily_ctas.sh[0m           [01;32mecr_create_repository.sh[0m    [01;32mecs_03_alb_and_sg.sh[0m         [01;32mecs_98_delete_task_defs.sh[0m          [01;32mlambda_function.py[0m                  [01;32msagemaker_create_model.sh[0m
+ [01;32mapigw_51_upload_localimage.sh[0m    [01;32mbilling_98_check_status.sh[0m             [01;32mecr_delete_repository.sh[0m    [01;32mecs_04_register_taskdef.sh[0m   [01;32mecs_99_cleanup.sh[0m                   --metric-name                       [01;32msagemaker_deploy_endpoint.sh[0m
+ [01;32mapigw_52_download_image.py[0m       [01;32mbilling_99_destroy_all.sh[0m              [01;32mecr_load_docker_image.bat[0m   [01;32mecs_05_create_service.sh[0m     [01;32mlambda_00_prereqs.sh[0m                --namespace                         [01;32msagemaker_invoke_async_as_json.sh[0m
+ [01;32mapigw_99_cleanup.sh[0m              [01;32mddn_lambda_function.zip[0m                [01;32mecr_load_docker_image.sh[0m    [01;32mecs_06_update_service.sh[0m     [01;32mlambda_01_create_function.sh[0m        --region                            [01;32msagemaker_invoke_async_as_tif.sh[0m
+ asg_01_check_ddn_alb_rpt.sh      --dimensions                           [01;32mecr_push_docker_image.bat[0m   [01;32mecs_07_autoscaling.sh[0m        [01;32mlambda_51_test_invoke_upload.py[0m     [01;32ms3_create_bucket.sh[0m                 [01;32msample.txt[0m
+ asg_02_check_last_scale_out.sh   [01;32mdocker_clean.bat[0m                       [01;32mecr_push_docker_image.sh[0m    [01;32mecs_10_go_all.sh[0m             [01;32
