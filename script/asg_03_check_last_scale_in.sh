@@ -165,7 +165,10 @@ if [[ "$NS" == "AWS/ApplicationELB" && "$MN" == "RequestCountPerTarget" ]]; then
     '
 
   # 마지막 포인트 임계 비교 (알람과 동일 기준: Sum/60s = per-target RPM)
-  LAST_SUM="$(printf '%s' "$RAW_METRIC" | jq -r '.Datapoints | sort_by(.Timestamp) | last?.Sum // 0')"
+  LAST_POINT_JSON="$(printf '%s' "$RAW_METRIC" | jq -c '.Datapoints | sort_by(.Timestamp) | last // {}')"
+  LAST_SUM="$(printf '%s' "$LAST_POINT_JSON" | jq -r '.Sum // 0')"
+  printf '%s\n' "$LAST_POINT_JSON" \
+
   awk -v a="$LAST_SUM" -v b="${DDN_SCALE_IN_REQUEST_COUNT_PER_TARGET}" 'BEGIN{
     printf "\nLast datapoint: perTargetRPM=%s (", a;
     if (a < b) { printf "< %s) => BELOW threshold (eligible for Scale-In)\n", b; }
