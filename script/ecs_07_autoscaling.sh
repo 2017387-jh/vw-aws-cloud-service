@@ -123,7 +123,7 @@ aws cloudwatch put-metric-alarm \
   --dimensions Name=LoadBalancer,Value="$LB_LABEL" Name=TargetGroup,Value="$TG_LABEL" \
   --statistic Sum \
   --period 60 \
-  --evaluation-periods 1 \
+  --evaluation-periods "${DDN_SCALE_OUT_EVALUATION_PERIODS}" \
   --threshold "${DDN_SCALE_OUT_THRESHOLD_REQUEST_COUNT}" \
   --comparison-operator GreaterThanThreshold \
   --treat-missing-data notBreaching \
@@ -155,18 +155,22 @@ aws cloudwatch put-metric-alarm \
   --dimensions Name=LoadBalancer,Value="$LB_LABEL" Name=TargetGroup,Value="$TG_LABEL" \
   --statistic Sum \
   --period 60 \
-  --evaluation-periods 2 \
+  --evaluation-periods "${DDN_SCALE_IN_EVALUATION_PERIODS}" \
   --threshold "${DDN_SCALE_IN_REQUEST_COUNT_PER_TARGET}" \
   --comparison-operator LessThanThreshold \
   --treat-missing-data notBreaching \
   --alarm-actions "$STEP_IN_ARN"
 
-echo "[INFO] Applied StepScaling (IN) policy for low traffic condition"
+echo "[INFO] Applied StepScaling (IN/OUT) policies with evaluation periods from .env"
 
 echo "[OK] Auto Scaling setup complete for service: $DDN_ECS_SERVICE"
 echo " - Min Capacity: $DDN_MIN_CAPACITY"
 echo " - Max Capacity: $DDN_MAX_CAPACITY"
 echo " - CPU High Threshold: $DDN_CPU_HIGH_THRESHOLD%"
 echo " - Memory High Threshold: $DDN_MEMORY_HIGH_THRESHOLD%"
+echo " - Scale Out Threshold (Req/Target/min): $DDN_SCALE_OUT_THRESHOLD_REQUEST_COUNT"
+echo " - Scale In Threshold (Req/Target/min): $DDN_SCALE_IN_REQUEST_COUNT_PER_TARGET"
+echo " - Scale Out Evaluation Periods: $DDN_SCALE_OUT_EVALUATION_PERIODS"
+echo " - Scale In  Evaluation Periods: $DDN_SCALE_IN_EVALUATION_PERIODS"
 echo " - Scale In Cooldown: ${SCALE_IN_COOLDOWN}s"
 echo " - Scale Out Cooldown: ${SCALE_OUT_COOLDOWN}s"
