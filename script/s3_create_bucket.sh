@@ -21,4 +21,10 @@ for b in "$DDN_IN_BUCKET" "$DDN_OUT_BUCKET"; do
   #   - S3에 업로드되는 객체(파일)에 대해 버전 관리 기능 활성화
   aws s3api put-bucket-versioning --bucket "$b" \
     --versioning-configuration Status=Enabled
+
+  # 가속화(Accelerate) 설정
+  if [ "$DDN_S3_USE_ACCELERATE" = "true" ]; then
+    aws s3api put-bucket-accelerate-configuration --bucket "$b" \
+      --accelerate-configuration Status=Enabled
+  fi
 done

@@ -2,8 +2,17 @@ import boto3
 import json
 import os
 import urllib.parse
+from botocore.config import Config
 
-s3 = s3 = boto3.client("s3")
+ACCELERATE = os.environ.get("DDN_USE_S3_ACCELERATE", "false").lower() == "true"
+EXPIRES = int(os.environ.get("DDN_S3_PRESIGN_EXPIRES", "3600"))
+REGION = os.environ.get("AWS_REGION", "ap-northeast-2")
+
+s3 = boto3.client(
+    "s3",
+    region_name=REGION,
+    config=Config(s3={"use_accelerate_endpoint": ACCELERATE})
+)
 
 def lambda_handler(event, context):
     # Get Query parameters from the event
@@ -25,7 +34,7 @@ def lambda_handler(event, context):
         url = s3.generate_presigned_url(
             ClientMethod=method,
             Params={"Bucket": bucket, "Key": file_name},
-            ExpiresIn=3600  # 1 hour
+            ExpiresIn=EXPIRES  # 1 hour
         )
         return {"statusCode": 200, "body": json.dumps({"url": url})}
     except Exception as e:
