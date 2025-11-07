@@ -14,7 +14,7 @@ source .env
 : "${DDN_OUT_BUCKET:?DDN_OUT_BUCKET required}"
 
 # 가속/만료시간 기본값 (없으면 기본값 주입)
-: "${DDN_USE_S3_ACCELERATE:=false}"
+: "${DDN_S3_USE_ACCELERATE:=false}"
 : "${DDN_S3_PRESIGN_EXPIRES:=900}"
 
 aws configure set region "$AWS_REGION"
@@ -47,7 +47,7 @@ function wait_updated() {
   aws lambda wait function-updated --function-name "$DDN_LAMBDA_FUNC_NAME"
 }
 
-ENV_VARS="Variables={DDN_IN_BUCKET=$DDN_IN_BUCKET,DDN_OUT_BUCKET=$DDN_OUT_BUCKET,DDN_USE_S3_ACCELERATE=$DDN_USE_S3_ACCELERATE,DDN_S3_PRESIGN_EXPIRES=$DDN_S3_PRESIGN_EXPIRES}"
+ENV_VARS="Variables={DDN_IN_BUCKET=$DDN_IN_BUCKET,DDN_OUT_BUCKET=$DDN_OUT_BUCKET,DDN_S3_USE_ACCELERATE=$DDN_S3_USE_ACCELERATE,DDN_S3_PRESIGN_EXPIRES=$DDN_S3_PRESIGN_EXPIRES}"
 
 # =========================
 # Create or Update

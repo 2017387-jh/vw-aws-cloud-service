@@ -4,7 +4,7 @@ import os
 import urllib.parse
 from botocore.config import Config
 
-ACCELERATE = os.environ.get("DDN_USE_S3_ACCELERATE", "false").lower() == "true"
+ACCELERATE = os.environ.get("DDN_S3_USE_ACCELERATE", "false").lower() == "true"
 EXPIRES = int(os.environ.get("DDN_S3_PRESIGN_EXPIRES", "3600"))
 REGION = os.environ.get("AWS_REGION", "ap-northeast-2")
 
